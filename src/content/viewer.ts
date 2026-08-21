@@ -330,7 +330,8 @@ export class ImageViewer {
     );
     viewer.addEventListener("pointerdown", (event) => {
       if (event.target instanceof Element && event.target.closest("button")) return;
-      viewer.setPointerCapture(event.pointerId);
+      const captureTarget = event.target === image ? image : viewer;
+      captureTarget.setPointerCapture(event.pointerId);
       this.didDrag = false;
       this.pointerStart = {
         x: event.clientX,
