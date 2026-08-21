@@ -352,7 +352,7 @@ export class ImageViewer {
         this.panX = this.pointerStart.panX + dx;
         this.panY = this.pointerStart.panY + dy;
         this.applyTransform();
-      } else if (this.zoom === 1) {
+      } else {
         const dragY = dy > 0 && dy > Math.abs(dx) ? dy : 0;
         this.swipeOffsetY = dragY;
         this.applyTransform();
@@ -365,7 +365,8 @@ export class ImageViewer {
       const dx = event.clientX - this.pointerStart.x;
       const dy = event.clientY - this.pointerStart.y;
       const canceled = event.type === "pointercancel";
-      if (!canceled && this.zoom === 1 && dy >= SWIPE_CLOSE_THRESHOLD && dy > Math.abs(dx)) {
+      const canCloseBySwipe = this.zoom === 1 || !this.pointerStart.onImage;
+      if (!canceled && canCloseBySwipe && dy >= SWIPE_CLOSE_THRESHOLD && dy > Math.abs(dx)) {
         this.didDrag = true;
         this.closeViewer();
       } else if (!canceled && this.zoom === 1 && Math.abs(dx) >= 50 && Math.abs(dx) > dy) {
