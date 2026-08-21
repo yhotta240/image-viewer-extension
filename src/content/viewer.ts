@@ -234,10 +234,21 @@ export class ImageViewer {
   }
 
   private setupEvents(): void {
-    const { close, prev, next, image } = this.elements;
+    const { viewer, close, prev, next, image } = this.elements;
     close.addEventListener("click", () => this.closeViewer());
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
+    viewer.addEventListener(
+      "wheel",
+      (event) => {
+        if (!this.isOpen || event.target === image) return;
+        const delta = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
+        if (delta === 0) return;
+        event.preventDefault();
+        this.move(delta);
+      },
+      { passive: false },
+    );
     document.addEventListener("keydown", (event) => {
       if (!this.isOpen) return;
       if (event.key === "Escape") {
