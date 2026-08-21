@@ -80,7 +80,12 @@ function collectRawCandidates(settings: ImageViewerSettings): RawCandidate[] {
   }
 
   if (settings.includeBackgroundImages) {
-    for (const element of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+    const elements = [
+      document.documentElement,
+      ...(document.body ? [document.body] : []),
+      ...Array.from(document.querySelectorAll<HTMLElement>("body *")),
+    ];
+    for (const element of new Set(elements)) {
       if (!hasVisibleArea(element)) continue;
       for (const url of extractBackgroundUrls(getComputedStyle(element).backgroundImage)) {
         candidates.push({ url, source: "background", element });

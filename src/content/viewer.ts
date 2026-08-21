@@ -309,7 +309,10 @@ export class ImageViewer {
     const finishPointer = (event: PointerEvent) => {
       if (!this.pointerStart) return;
       const dx = event.clientX - this.pointerStart.x;
-      if (this.zoom === 1 && Math.abs(dx) >= 50) this.move(dx < 0 ? 1 : -1);
+      if (this.zoom === 1 && Math.abs(dx) >= 50) {
+        this.move(dx < 0 ? 1 : -1);
+        this.didDrag = true;
+      }
       this.pointerStart = null;
       image.classList.remove("dragging");
     };
