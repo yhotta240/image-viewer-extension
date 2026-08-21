@@ -4,6 +4,8 @@ import viewerStyle from "./viewer.css";
 const HOST_ID = "image-viewer-extension-root";
 const HOVER_HOST_ID = "image-viewer-extension-hover-root";
 const HOVER_ANCHOR_NAME = "--image-viewer-target";
+const WHEEL_THRESHOLD = 40;
+const WHEEL_DEBOUNCE_MS = 180;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
@@ -91,6 +93,9 @@ export class ImageViewer {
   private previousAnchorPriority = "";
   private hoverHideTimer: number | undefined;
   private toastTimer: number | undefined;
+  private wheelDelta = 0;
+  private wheelGestureActive = false;
+  private wheelResetTimer: number | undefined;
   private isOpen = false;
 
   constructor() {
@@ -160,6 +165,7 @@ export class ImageViewer {
     this.images = images;
     this.index = ((initialIndex % images.length) + images.length) % images.length;
     this.isOpen = true;
+    this.resetWheelGesture();
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.elements.hover.hidden = true;
@@ -173,6 +179,7 @@ export class ImageViewer {
   closeViewer(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.resetWheelGesture();
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
     this.clearHoverAnchor();
@@ -242,9 +249,19 @@ export class ImageViewer {
       "wheel",
       (event) => {
         if (!this.isOpen || event.target === image) return;
-        const delta = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
-        if (delta === 0) return;
         event.preventDefault();
+        if (event.deltaY === 0) return;
+
+        if (this.wheelResetTimer !== undefined) window.clearTimeout(this.wheelResetTimer);
+        this.wheelResetTimer = window.setTimeout(() => this.resetWheelGesture(), WHEEL_DEBOUNCE_MS);
+        if (this.wheelGestureActive) return;
+
+        this.wheelDelta += event.deltaY;
+        if (Math.abs(this.wheelDelta) < WHEEL_THRESHOLD) return;
+
+        const delta = this.wheelDelta > 0 ? 1 : -1;
+        this.wheelDelta = 0;
+        this.wheelGestureActive = true;
         this.move(delta);
       },
       { passive: false },
@@ -336,6 +353,13 @@ export class ImageViewer {
     this.index = (this.index + delta + this.images.length) % this.images.length;
     this.resetZoom();
     this.render();
+  }
+
+  private resetWheelGesture(): void {
+    if (this.wheelResetTimer !== undefined) window.clearTimeout(this.wheelResetTimer);
+    this.wheelResetTimer = undefined;
+    this.wheelDelta = 0;
+    this.wheelGestureActive = false;
   }
 
   private setHoverAnchor(target: HTMLImageElement): void {
