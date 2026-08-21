@@ -32,7 +32,12 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /viewer\.css$/,
+        use: "raw-loader"
+      },
+      {
         test: /\.css$/,
+        exclude: /viewer\.css$/,
         use: ["style-loader", "css-loader"]
       },
       {

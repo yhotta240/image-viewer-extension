@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Chrome Extension Starter Kit",
-  "short_name": "Chrome Extension Starter Kit",
-  "version": "0.2.0",
-  "description": "",
+  "name": "Image Viewer",
+  "short_name": "Image Viewer",
+  "version": "0.0.1",
+  "description": "現在のページにある画像をギャラリーとして閲覧します",
   "icons": {
     "48": "icons/icon.png"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "contextMenus"],
   "action": {
     "default_popup": "popup.html"
   },

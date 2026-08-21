@@ -2,12 +2,12 @@ import { DEFAULT_SETTINGS, type Settings } from "../settings";
 
 export async function getSettings(): Promise<Settings> {
   const data = await getStorage<{ settings?: Settings }>("settings");
-  return data.settings ?? DEFAULT_SETTINGS;
+  return { ...DEFAULT_SETTINGS, ...(data.settings ?? {}) };
 }
 
 export async function isEnabled(): Promise<boolean> {
   const data = await getStorage<{ enabled?: boolean }>("enabled");
-  return data.enabled === true;
+  return data.enabled === undefined ? true : data.enabled === true;
 }
 
 export async function setSettings(settings: Settings): Promise<void> {

@@ -112,72 +112,37 @@
     <div class="tab-pane fade mt-3 mx-2 show active" id="settings" role="tabpanel" style="margin-bottom: 180px;"
       aria-labelledby="settings-tab">
       <h5 class="">設定</h5>
-      <p class="text-muted small">ここに拡張機能の設定項目を追加してください</p>
+      <p class="text-muted small">ページ上の画像をギャラリーとして表示する設定です。</p>
 
-      <!-- =========================
-        設定項目のテンプレート
-        ※ 以下のコメントアウトされた例を参考に，実際の設定項目を追加してください
-      ========================== -->
       <ul class="list-group list-group-flush">
-        <!-- テーマ切替は右上のアイコンから行います -->
-        <!-- 
-        ========== 設定項目の例 ==========
-
-        ▼ セレクトボックス（ドロップダウン）の例:
         <li class="list-group-item">
           <div class="mb-3">
-            <label for="theme-select" class="form-label d-flex">テーマ：</label>
-            <select class="form-select" id="theme-select">
-              <option value="light">ライト</option>
-              <option value="dark">ダーク</option>
-              <option value="system">システム</option>
-            </select>
-          </div>
-        </li>
-
-        ▼ スライダー（範囲入力）の例:
-        <li class="list-group-item">
-          <div class="mb-3">
-            <label for="font-size" class="form-label d-flex">フォントサイズ：</label>
-            <input type="range" class="form-range" id="font-size" min="12" max="24" value="16">
-            <small class="text-muted">12〜24の範囲で調整可能</small>
-          </div>
-        </li>
-
-        ▼ チェックボックスの例:
-        <li class="list-group-item">
-          <div class="form-check mb-2">
-            <input class="form-check-input" type="checkbox" id="enable-notifications">
-            <label class="form-check-label" for="enable-notifications">
-              通知を受け取る
-            </label>
-          </div>
-        </li>
-
-        ▼ テキスト入力の例:
-        <li class="list-group-item">
-          <div class="mb-3">
-            <label for="api-key" class="form-label d-flex">APIキー：</label>
-            <input type="text" class="form-control" id="api-key" placeholder="APIキーを入力">
-          </div>
-        </li>
-
-        ▼ ラジオボタンの例:
-        <li class="list-group-item">
-          <div class="mb-3">
-            <label class="form-label d-flex">表示モード：</label>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="display-mode" id="mode-compact" value="compact">
-              <label class="form-check-label" for="mode-compact">コンパクト</label>
+            <label for="min-image-size" class="form-label d-flex">最小画像サイズ：</label>
+            <div class="input-group">
+              <input type="number" class="form-control" id="min-image-size" min="64" max="2000" step="1">
+              <span class="input-group-text">px</span>
             </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="display-mode" id="mode-standard" value="standard" checked>
-              <label class="form-check-label" for="mode-standard">標準</label>
-            </div>
+            <small class="text-muted">短辺がこのサイズ未満の画像やアイコンを除外します。</small>
           </div>
         </li>
-        -->
+        <li class="list-group-item">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="include-background-images">
+            <label class="form-check-label" for="include-background-images">CSS背景画像も収集する</label>
+          </div>
+        </li>
+        <li class="list-group-item">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="show-hover-button">
+            <label class="form-check-label" for="show-hover-button">画像ホバー時に起動ボタンを表示する</label>
+          </div>
+        </li>
       </ul>
+      <div class="alert alert-light small mt-3 mb-0">
+        <strong>起動方法</strong><br>
+        画像にホバーしてボタンを押す、Alt + クリック、または画像の右クリックメニューから開けます。<br>
+        ビューアでは左右キー、スワイプ、ボタンで移動できます。
+      </div>
     </div>
 
     <!-- ドキュメント -->

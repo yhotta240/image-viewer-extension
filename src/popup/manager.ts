@@ -25,16 +25,22 @@ export class PopupManager {
   private manifestData: chrome.runtime.Manifest;
   private manifestMetadata: ManifestMetadata;
   private enabledElement: HTMLInputElement | null;
-  // private notificationToggle: HTMLInputElement | null;
-  // private fontSizeRange: HTMLInputElement | null;
+  private minImageSizeElement: HTMLInputElement | null;
+  private includeBackgroundImagesElement: HTMLInputElement | null;
+  private showHoverButtonElement: HTMLInputElement | null;
 
   constructor() {
     this.panel = new PopupPanel();
     this.manifestData = chrome.runtime.getManifest();
     this.manifestMetadata = meta || {};
     this.enabledElement = document.getElementById("enabled") as HTMLInputElement | null;
-    // this.notificationToggle = document.getElementById('notification-toggle') as HTMLInputElement | null;
-    // this.fontSizeRange = document.getElementById('font-size') as HTMLInputElement | null;
+    this.minImageSizeElement = document.getElementById("min-image-size") as HTMLInputElement | null;
+    this.includeBackgroundImagesElement = document.getElementById(
+      "include-background-images",
+    ) as HTMLInputElement | null;
+    this.showHoverButtonElement = document.getElementById(
+      "show-hover-button",
+    ) as HTMLInputElement | null;
 
     this.initialize();
   }
@@ -60,6 +66,13 @@ export class PopupManager {
       this.settings = await getSettings();
       this.enabled = await isEnabled();
       if (this.enabledElement) this.enabledElement.checked = this.enabled;
+      if (this.minImageSizeElement)
+        this.minImageSizeElement.value = String(this.settings.minImageSize);
+      if (this.includeBackgroundImagesElement) {
+        this.includeBackgroundImagesElement.checked = this.settings.includeBackgroundImages;
+      }
+      if (this.showHoverButtonElement)
+        this.showHoverButtonElement.checked = this.settings.showHoverButton;
       await this.showLog(
         `${this.manifestData.short_name} は現在 ${this.enabled ? "有効" : "無効"} です`,
       );
@@ -110,6 +123,35 @@ export class PopupManager {
       }
     });
 
+    this.minImageSizeElement?.addEventListener("change", async (event) => {
+      const input = event.target as HTMLInputElement;
+      const value = Math.min(2000, Math.max(64, Number(input.value) || 200));
+      input.value = String(value);
+      await this.updateSettings(
+        { minImageSize: value },
+        "最小画像サイズを保存しました",
+        "最小画像サイズの保存に失敗しました",
+      );
+    });
+
+    this.includeBackgroundImagesElement?.addEventListener("change", async (event) => {
+      const enabled = (event.target as HTMLInputElement).checked;
+      await this.updateSettings(
+        { includeBackgroundImages: enabled },
+        `CSS背景画像を${enabled ? "収集" : "除外"}する設定を保存しました`,
+        "CSS背景画像設定の保存に失敗しました",
+      );
+    });
+
+    this.showHoverButtonElement?.addEventListener("change", async (event) => {
+      const enabled = (event.target as HTMLInputElement).checked;
+      await this.updateSettings(
+        { showHoverButton: enabled },
+        `ホバー起動ボタンを${enabled ? "表示" : "非表示"}にしました`,
+        "ホバー起動ボタン設定の保存に失敗しました",
+      );
+    });
+
     // テーマ設定のイベントリスナー
     setupThemeMenu(async (value: Theme) => {
       try {
@@ -153,7 +195,6 @@ export class PopupManager {
     // });
   }
 
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: 設定を更新する際はこの関数を呼び出してください
   private async updateSettings(
     patch: Partial<Settings>,
     successMessage?: string,
