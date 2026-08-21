@@ -5,7 +5,7 @@ const HOST_ID = "image-viewer-extension-root";
 const HOVER_HOST_ID = "image-viewer-extension-hover-root";
 const HOVER_ANCHOR_NAME = "--image-viewer-target";
 const WHEEL_THRESHOLD = 40;
-const WHEEL_DEBOUNCE_MS = 180;
+const WHEEL_COOLDOWN_MS = 90;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
@@ -94,8 +94,8 @@ export class ImageViewer {
   private hoverHideTimer: number | undefined;
   private toastTimer: number | undefined;
   private wheelDelta = 0;
-  private wheelGestureActive = false;
-  private wheelResetTimer: number | undefined;
+  private wheelCooldown = false;
+  private wheelCooldownTimer: number | undefined;
   private isOpen = false;
 
   constructor() {
@@ -165,7 +165,7 @@ export class ImageViewer {
     this.images = images;
     this.index = ((initialIndex % images.length) + images.length) % images.length;
     this.isOpen = true;
-    this.resetWheelGesture();
+    this.resetWheelState();
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.elements.hover.hidden = true;
@@ -179,7 +179,7 @@ export class ImageViewer {
   closeViewer(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
-    this.resetWheelGesture();
+    this.resetWheelState();
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
     this.clearHoverAnchor();
@@ -250,18 +250,18 @@ export class ImageViewer {
       (event) => {
         if (!this.isOpen || event.target === image) return;
         event.preventDefault();
-        if (event.deltaY === 0) return;
-
-        if (this.wheelResetTimer !== undefined) window.clearTimeout(this.wheelResetTimer);
-        this.wheelResetTimer = window.setTimeout(() => this.resetWheelGesture(), WHEEL_DEBOUNCE_MS);
-        if (this.wheelGestureActive) return;
+        if (event.deltaY === 0 || this.wheelCooldown) return;
 
         this.wheelDelta += event.deltaY;
         if (Math.abs(this.wheelDelta) < WHEEL_THRESHOLD) return;
 
         const delta = this.wheelDelta > 0 ? 1 : -1;
         this.wheelDelta = 0;
-        this.wheelGestureActive = true;
+        this.wheelCooldown = true;
+        this.wheelCooldownTimer = window.setTimeout(() => {
+          this.wheelCooldown = false;
+          this.wheelCooldownTimer = undefined;
+        }, WHEEL_COOLDOWN_MS);
         this.move(delta);
       },
       { passive: false },
@@ -355,11 +355,11 @@ export class ImageViewer {
     this.render();
   }
 
-  private resetWheelGesture(): void {
-    if (this.wheelResetTimer !== undefined) window.clearTimeout(this.wheelResetTimer);
-    this.wheelResetTimer = undefined;
+  private resetWheelState(): void {
+    if (this.wheelCooldownTimer !== undefined) window.clearTimeout(this.wheelCooldownTimer);
+    this.wheelCooldownTimer = undefined;
     this.wheelDelta = 0;
-    this.wheelGestureActive = false;
+    this.wheelCooldown = false;
   }
 
   private setHoverAnchor(target: HTMLImageElement): void {
