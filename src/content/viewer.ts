@@ -4,6 +4,8 @@ import viewerStyle from "./viewer.css";
 const HOST_ID = "image-viewer-extension-root";
 const HOVER_HOST_ID = "image-viewer-extension-hover-root";
 const HOVER_ANCHOR_NAME = "--image-viewer-target";
+const WHEEL_THRESHOLD = 40;
+const WHEEL_COOLDOWN_MS = 90;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
@@ -91,6 +93,9 @@ export class ImageViewer {
   private previousAnchorPriority = "";
   private hoverHideTimer: number | undefined;
   private toastTimer: number | undefined;
+  private wheelDelta = 0;
+  private wheelCooldown = false;
+  private wheelCooldownTimer: number | undefined;
   private isOpen = false;
 
   constructor() {
@@ -160,6 +165,7 @@ export class ImageViewer {
     this.images = images;
     this.index = ((initialIndex % images.length) + images.length) % images.length;
     this.isOpen = true;
+    this.resetWheelState();
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.elements.hover.hidden = true;
@@ -173,6 +179,7 @@ export class ImageViewer {
   closeViewer(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.resetWheelState();
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
     this.clearHoverAnchor();
@@ -234,10 +241,31 @@ export class ImageViewer {
   }
 
   private setupEvents(): void {
-    const { close, prev, next, image } = this.elements;
+    const { viewer, close, prev, next, image } = this.elements;
     close.addEventListener("click", () => this.closeViewer());
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
+    viewer.addEventListener(
+      "wheel",
+      (event) => {
+        if (!this.isOpen || event.target === image) return;
+        event.preventDefault();
+        if (event.deltaY === 0 || this.wheelCooldown) return;
+
+        this.wheelDelta += event.deltaY;
+        if (Math.abs(this.wheelDelta) < WHEEL_THRESHOLD) return;
+
+        const delta = this.wheelDelta > 0 ? 1 : -1;
+        this.wheelDelta = 0;
+        this.wheelCooldown = true;
+        this.wheelCooldownTimer = window.setTimeout(() => {
+          this.wheelCooldown = false;
+          this.wheelCooldownTimer = undefined;
+        }, WHEEL_COOLDOWN_MS);
+        this.move(delta);
+      },
+      { passive: false },
+    );
     document.addEventListener("keydown", (event) => {
       if (!this.isOpen) return;
       if (event.key === "Escape") {
@@ -325,6 +353,13 @@ export class ImageViewer {
     this.index = (this.index + delta + this.images.length) % this.images.length;
     this.resetZoom();
     this.render();
+  }
+
+  private resetWheelState(): void {
+    if (this.wheelCooldownTimer !== undefined) window.clearTimeout(this.wheelCooldownTimer);
+    this.wheelCooldownTimer = undefined;
+    this.wheelDelta = 0;
+    this.wheelCooldown = false;
   }
 
   private setHoverAnchor(target: HTMLImageElement): void {
