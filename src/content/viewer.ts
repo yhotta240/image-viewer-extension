@@ -6,6 +6,8 @@ const HOVER_HOST_ID = "image-viewer-extension-hover-root";
 const HOVER_ANCHOR_NAME = "--image-viewer-target";
 const WHEEL_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 90;
+const SWIPE_CLOSE_THRESHOLD = 80;
+const VIEWER_BACKDROP_OPACITY = 0.94;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
@@ -84,7 +86,14 @@ export class ImageViewer {
   private zoom = 1;
   private panX = 0;
   private panY = 0;
-  private pointerStart: { x: number; y: number; panX: number; panY: number } | null = null;
+  private swipeOffsetY = 0;
+  private pointerStart: {
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+    onImage: boolean;
+  } | null = null;
   private didDrag = false;
   private fallbackAttempted = false;
   private previousBodyOverflow = "";
@@ -166,6 +175,7 @@ export class ImageViewer {
     this.index = ((initialIndex % images.length) + images.length) % images.length;
     this.isOpen = true;
     this.resetWheelState();
+    this.resetSwipeVisuals(false);
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.elements.hover.hidden = true;
@@ -180,6 +190,7 @@ export class ImageViewer {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.resetWheelState();
+    this.resetSwipeVisuals(false);
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
     this.clearHoverAnchor();
@@ -317,35 +328,57 @@ export class ImageViewer {
       },
       { passive: false },
     );
-    image.addEventListener("pointerdown", (event) => {
-      image.setPointerCapture(event.pointerId);
+    viewer.addEventListener("pointerdown", (event) => {
+      if (event.target instanceof Element && event.target.closest("button")) return;
+      const captureTarget = event.target === image ? image : viewer;
+      captureTarget.setPointerCapture(event.pointerId);
       this.didDrag = false;
-      this.pointerStart = { x: event.clientX, y: event.clientY, panX: this.panX, panY: this.panY };
-      image.classList.toggle("dragging", this.zoom > 1);
+      this.pointerStart = {
+        x: event.clientX,
+        y: event.clientY,
+        panX: this.panX,
+        panY: this.panY,
+        onImage: event.target === image,
+      };
+      image.style.transition = "none";
+      image.classList.toggle("dragging", this.zoom > 1 && this.pointerStart.onImage);
     });
-    image.addEventListener("pointermove", (event) => {
+    viewer.addEventListener("pointermove", (event) => {
       if (!this.pointerStart) return;
       const dx = event.clientX - this.pointerStart.x;
       const dy = event.clientY - this.pointerStart.y;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) this.didDrag = true;
-      if (this.zoom > 1) {
+      if (this.zoom > 1 && this.pointerStart.onImage) {
         this.panX = this.pointerStart.panX + dx;
         this.panY = this.pointerStart.panY + dy;
         this.applyTransform();
+      } else {
+        const dragY = dy > 0 && dy > Math.abs(dx) ? dy : 0;
+        this.swipeOffsetY = dragY;
+        this.applyTransform();
+        const backdropOpacity = Math.max(0.2, VIEWER_BACKDROP_OPACITY - dragY / 400);
+        viewer.style.setProperty("--viewer-backdrop-opacity", String(backdropOpacity));
       }
     });
     const finishPointer = (event: PointerEvent) => {
       if (!this.pointerStart) return;
       const dx = event.clientX - this.pointerStart.x;
-      if (this.zoom === 1 && Math.abs(dx) >= 50) {
+      const dy = event.clientY - this.pointerStart.y;
+      const canceled = event.type === "pointercancel";
+      const canCloseBySwipe = this.zoom === 1 || !this.pointerStart.onImage;
+      if (!canceled && canCloseBySwipe && dy >= SWIPE_CLOSE_THRESHOLD && dy > Math.abs(dx)) {
+        this.didDrag = true;
+        this.closeViewer();
+      } else if (!canceled && this.zoom === 1 && Math.abs(dx) >= 50 && Math.abs(dx) > dy) {
         this.move(dx < 0 ? 1 : -1);
         this.didDrag = true;
       }
       this.pointerStart = null;
       image.classList.remove("dragging");
+      if (this.isOpen) this.resetSwipeVisuals(true);
     };
-    image.addEventListener("pointerup", finishPointer);
-    image.addEventListener("pointercancel", finishPointer);
+    viewer.addEventListener("pointerup", finishPointer);
+    viewer.addEventListener("pointercancel", finishPointer);
   }
 
   private move(delta: number): void {
@@ -360,6 +393,21 @@ export class ImageViewer {
     this.wheelCooldownTimer = undefined;
     this.wheelDelta = 0;
     this.wheelCooldown = false;
+  }
+
+  private resetSwipeVisuals(animate: boolean): void {
+    const { image, viewer } = this.elements;
+    image.style.transition = animate ? "transform 160ms ease" : "none";
+    this.swipeOffsetY = 0;
+    this.applyTransform();
+    viewer.style.setProperty("--viewer-backdrop-opacity", String(VIEWER_BACKDROP_OPACITY));
+    if (animate) {
+      window.setTimeout(() => {
+        if (!this.pointerStart) image.style.transition = "";
+      }, 160);
+    } else {
+      image.style.transition = "";
+    }
   }
 
   private setHoverAnchor(target: HTMLImageElement): void {
@@ -391,6 +439,7 @@ export class ImageViewer {
     this.zoom = 1;
     this.panX = 0;
     this.panY = 0;
+    this.swipeOffsetY = 0;
     this.didDrag = false;
   }
 
@@ -405,7 +454,7 @@ export class ImageViewer {
   }
 
   private applyTransform(): void {
-    this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+    this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) scale(${this.zoom})`;
     this.elements.image.classList.toggle("zoomed", this.zoom > 1);
   }
 }
