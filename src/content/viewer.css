@@ -10,9 +10,8 @@
 .viewer {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  background: rgba(0, 0, 0, var(--viewer-backdrop-opacity, 0.94));
+  display: block;
+  background: #000;
   color: #fff;
   pointer-events: auto;
   touch-action: none;
@@ -25,19 +24,35 @@
 
 .topbar {
   box-sizing: border-box;
-  flex: 0 0 56px;
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 8px 16px;
+  padding: 0 16px;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.42) 0%,
+    rgba(0, 0, 0, 0.2) 58%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
 
 .counter {
   position: absolute;
+  z-index: 4;
   left: 50%;
   bottom: 16px;
+  padding: 5px 9px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.28);
   font-size: 14px;
   line-height: 1;
+  pointer-events: none;
   transform: translateX(-50%);
 }
 
@@ -181,10 +196,9 @@ button:hover {
 }
 
 .stage {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: grid;
-  flex: 1;
-  min-height: 0;
   place-items: center;
   overflow: hidden;
 }
