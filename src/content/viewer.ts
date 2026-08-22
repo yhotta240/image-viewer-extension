@@ -12,6 +12,7 @@ import {
   RotateCw,
   X,
 } from "lucide";
+import { logError, logWarn } from "../utils/logger";
 import { getStorage, setStorage } from "../utils/storage";
 import { findImageIndex, type GalleryImage } from "./collector";
 import { downloadCurrentImage, downloadGalleryZip } from "./download";
@@ -175,6 +176,7 @@ export class ImageViewer {
       getImageUrl: () => image.currentSrc || image.src,
       getPageUrl: () => this.sourcePageUrl,
       showToast: (message) => this.showToast(message),
+      logFailure: (message, detail) => void logError(message, "content", detail),
     });
     topbar.append(download, zip, fit, rotate, share.element, fullscreen, info.element, close);
 
@@ -409,6 +411,7 @@ export class ImageViewer {
         return;
       }
       this.elements.error.textContent = "この画像を表示できません";
+      void logError("画像を表示できませんでした", "content", image.currentSrc || image.src);
       this.share.update();
       this.updateInfo();
     });
@@ -534,6 +537,9 @@ export class ImageViewer {
           ? `画像のダウンロードを開始しました: ${result.filename}`
           : "画像をダウンロードできませんでした",
       );
+      if (!result.ok) {
+        void logError("画像のダウンロードに失敗しました", "content", image.currentSrc || image.src);
+      }
     } finally {
       download.disabled = false;
     }
@@ -548,9 +554,15 @@ export class ImageViewer {
       const result = await downloadGalleryZip(this.images);
       if (!result.ok) {
         this.showToast("ZIPを作成できませんでした");
+        void logError("画像ZIPの作成に失敗しました", "content");
       } else if (result.failed > 0) {
         this.showToast(
           `ZIPをダウンロードしました（成功${result.downloaded}枚 / 失敗${result.failed}枚）`,
+        );
+        void logWarn(
+          "画像ZIPの一部ダウンロードに失敗しました",
+          "content",
+          `${result.failed}枚の画像を取得できませんでした`,
         );
       } else {
         this.showToast(`ZIPをダウンロードしました（${result.downloaded}枚）`);
