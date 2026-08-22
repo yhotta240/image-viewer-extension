@@ -18,35 +18,120 @@ type OpenViewerMessage = {
 let settings: ImageViewerSettings = DEFAULT_SETTINGS;
 let enabled = true;
 const viewer: ImageViewer = createImageViewer();
-let galleryCache: GalleryImage[] | null = null;
-let galleryCollection: Promise<GalleryImage[]> | null = null;
+type GalleryCache = {
+  settingsVersion: number;
+  pageVersion: number;
+  images: GalleryImage[];
+};
+
+type GalleryCollection = {
+  settingsVersion: number;
+  pageVersion: number;
+  promise: Promise<GalleryImage[]>;
+};
+
+let galleryCache: GalleryCache | null = null;
+let galleryCollection: GalleryCollection | null = null;
 let settingsVersion = 0;
+let pageVersion = 0;
+
+const extensionHostSelector = "#image-viewer-extension-root, #image-viewer-extension-hover-root";
+
+function isExtensionMutation(record: MutationRecord): boolean {
+  const target = record.target instanceof Element ? record.target : record.target.parentElement;
+  if (target?.closest(extensionHostSelector)) return true;
+  if (record.type !== "childList") return false;
+
+  const changedNodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
+  return (
+    changedNodes.length > 0 &&
+    changedNodes.every(
+      (node) => node instanceof Element && node.closest(extensionHostSelector) === node,
+    )
+  );
+}
+
+function setupGalleryInvalidation(): void {
+  const root = document.documentElement;
+  if (!root) return;
+
+  const observer = new MutationObserver((records) => {
+    if (records.every(isExtensionMutation)) return;
+    pageVersion += 1;
+    galleryCache = null;
+  });
+  observer.observe(root, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: [
+      "class",
+      "style",
+      "src",
+      "srcset",
+      "sizes",
+      "href",
+      "data-src",
+      "data-srcset",
+    ],
+  });
+}
 
 function collectFullGallery(): Promise<GalleryImage[]> {
-  if (galleryCache) return Promise.resolve(galleryCache);
-  if (galleryCollection) return galleryCollection;
+  const requestedSettingsVersion = settingsVersion;
+  const requestedPageVersion = pageVersion;
+  if (
+    galleryCache?.settingsVersion === requestedSettingsVersion &&
+    galleryCache.pageVersion === requestedPageVersion
+  ) {
+    return Promise.resolve(galleryCache.images);
+  }
+  if (
+    galleryCollection?.settingsVersion === requestedSettingsVersion &&
+    galleryCollection.pageVersion === requestedPageVersion
+  ) {
+    return galleryCollection.promise;
+  }
 
-  const version = settingsVersion;
   const pending = collectGalleryImages(settings).then((images) => {
-    if (version === settingsVersion) galleryCache = images;
+    if (requestedSettingsVersion === settingsVersion && requestedPageVersion === pageVersion) {
+      galleryCache = {
+        settingsVersion: requestedSettingsVersion,
+        pageVersion: requestedPageVersion,
+        images,
+      };
+    }
     return images;
   });
-  galleryCollection = pending;
+  const collection: GalleryCollection = {
+    settingsVersion: requestedSettingsVersion,
+    pageVersion: requestedPageVersion,
+    promise: pending,
+  };
+  galleryCollection = collection;
   void pending.then(
     () => {
-      if (galleryCollection === pending) galleryCollection = null;
+      if (galleryCollection === collection) galleryCollection = null;
     },
     () => {
-      if (galleryCollection === pending) galleryCollection = null;
+      if (galleryCollection === collection) galleryCollection = null;
     },
   );
   return pending;
 }
 
-async function completeGalleryCollection(version: number): Promise<void> {
+async function completeGalleryCollection(
+  expectedSettingsVersion: number,
+  expectedPageVersion: number,
+): Promise<void> {
   try {
     const images = await collectFullGallery();
-    if (version === settingsVersion && viewer.open && images.length > 0) {
+    if (
+      expectedSettingsVersion === settingsVersion &&
+      expectedPageVersion === pageVersion &&
+      viewer.open &&
+      images.length > 0
+    ) {
       viewer.replaceImages(images);
     }
   } catch {
@@ -61,8 +146,12 @@ async function openGallery(sourceUrl?: string): Promise<void> {
   if (quickImages.length > 0) {
     viewer.openViewer(quickImages, findImageIndex(quickImages, sourceUrl));
     void logInfo(`画像ギャラリーを開きました (${quickImages.length}枚)`, "content", true);
-    const version = settingsVersion;
-    window.setTimeout(() => void completeGalleryCollection(version), 0);
+    const expectedSettingsVersion = settingsVersion;
+    const expectedPageVersion = pageVersion;
+    window.setTimeout(
+      () => void completeGalleryCollection(expectedSettingsVersion, expectedPageVersion),
+      0,
+    );
     return;
   }
 
@@ -152,6 +241,7 @@ function setupMessages(): void {
 async function initialize(): Promise<void> {
   settings = await getSettings();
   enabled = await isEnabled();
+  setupGalleryInvalidation();
   setupHoverActivation();
   setupAltClickActivation();
   setupMessages();
