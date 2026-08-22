@@ -1,6 +1,7 @@
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   createElement as createLucideElement,
   type IconNode,
   Images,
@@ -9,6 +10,7 @@ import {
   RotateCw,
   X,
 } from "lucide";
+import { getStorage, setStorage } from "../utils/storage";
 import type { GalleryImage } from "./collector";
 import viewerStyle from "./viewer.css";
 import { ImageInfoPanel } from "./viewer-info";
@@ -30,6 +32,7 @@ type ViewerElements = {
   next: HTMLButtonElement;
   fullscreen: HTMLButtonElement;
   info: ImageInfoPanel;
+  fit: HTMLButtonElement;
   rotate: HTMLButtonElement;
   close: HTMLButtonElement;
   hover: HTMLButtonElement;
@@ -89,6 +92,7 @@ export class ImageViewer {
   private images: GalleryImage[] = [];
   private index = 0;
   private zoom = 1;
+  private fitMode = false;
   private rotation = 0;
   private panX = 0;
   private panY = 0;
@@ -112,6 +116,7 @@ export class ImageViewer {
   private wheelCooldown = false;
   private wheelCooldownTimer: number | undefined;
   private isOpen = false;
+  private readonly fitModeReady: Promise<void>;
 
   constructor() {
     const { viewerHost, viewerShadow, hoverHost, hoverShadow } = createHosts();
@@ -136,13 +141,15 @@ export class ImageViewer {
     const fullscreen = makeButton("", "fullscreen", "全画面表示");
     appendLucideIcon(fullscreen, Maximize2, 18);
     const info = new ImageInfoPanel();
+    const fit = makeButton("", "fit", "画面にフィット");
+    appendLucideIcon(fit, ChevronsUpDown, 18);
     const rotate = makeButton("", "rotate", "90度回転");
     appendLucideIcon(rotate, RotateCw, 18);
     const close = makeButton("", "close", "閉じる");
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(rotate, fullscreen, info.element, close);
+    topbar.append(fit, rotate, fullscreen, info.element, close);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -181,21 +188,26 @@ export class ImageViewer {
       next,
       fullscreen,
       info,
+      fit,
       rotate,
       close,
       hover,
     };
     this.updateFullscreenButton();
+    this.updateFitButton();
     this.setupEvents();
+    this.fitModeReady = this.restoreFitMode();
   }
 
   get open(): boolean {
     return this.isOpen;
   }
 
-  openViewer(images: GalleryImage[], initialIndex = 0): void {
+  async openViewer(images: GalleryImage[], initialIndex = 0): Promise<void> {
     if (images.length === 0) return;
-    if (!this.isOpen) {
+    await this.fitModeReady;
+    const wasOpen = this.isOpen;
+    if (!wasOpen) {
       this.previousBodyOverflow = document.body?.style.overflow ?? "";
       if (document.body) document.body.style.overflow = "hidden";
     }
@@ -282,11 +294,22 @@ export class ImageViewer {
   }
 
   private setupEvents(): void {
-    const { viewer, close, prev, next, fullscreen, rotate, image } = this.elements;
+    const { viewer, close, prev, next, fullscreen, fit, rotate, image } = this.elements;
     close.addEventListener("click", () => this.closeViewer());
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
     fullscreen.addEventListener("click", () => void this.toggleFullscreen());
+    fit.addEventListener("click", () => {
+      this.fitMode = !this.fitMode;
+      this.zoom = 1;
+      this.panX = 0;
+      this.panY = 0;
+      this.swipeOffsetY = 0;
+      this.didDrag = false;
+      this.updateFitButton();
+      void setStorage({ fitMode: this.fitMode }).catch(() => undefined);
+      this.applyTransform();
+    });
     rotate.addEventListener("click", () => {
       this.rotation = (this.rotation + 90) % 360;
       this.panX = 0;
@@ -295,6 +318,9 @@ export class ImageViewer {
       this.applyTransform();
     });
     document.addEventListener("fullscreenchange", () => this.updateFullscreenButton());
+    window.addEventListener("resize", () => {
+      if (this.isOpen) this.applyTransform();
+    });
     viewer.addEventListener(
       "wheel",
       (event) => {
@@ -460,6 +486,24 @@ export class ImageViewer {
     appendLucideIcon(fullscreen, isFullscreen ? Minimize2 : Maximize2, 18);
   }
 
+  private updateFitButton(): void {
+    const { fit } = this.elements;
+    const title = this.fitMode ? "通常表示に戻す" : "画面にフィット";
+    fit.title = title;
+    fit.setAttribute("aria-label", title);
+    fit.setAttribute("aria-pressed", String(this.fitMode));
+  }
+
+  private async restoreFitMode(): Promise<void> {
+    try {
+      const data = await getStorage<{ fitMode?: boolean }>("fitMode");
+      this.fitMode = data.fitMode === true;
+    } catch {
+      this.fitMode = false;
+    }
+    this.updateFitButton();
+  }
+
   private resetSwipeVisuals(animate: boolean): void {
     const { image } = this.elements;
     image.style.transition = animate ? "transform 160ms ease" : "none";
@@ -519,15 +563,13 @@ export class ImageViewer {
   }
 
   private applyTransform(): void {
-    const fitScale = this.getRotationFitScale();
+    const fitScale = this.getDisplayScale();
     this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) rotate(${this.rotation}deg) scale(${this.zoom * fitScale})`;
     this.elements.image.classList.toggle("zoomed", this.zoom > 1);
-    this.updateInfo();
+    this.updateInfo(this.zoom * fitScale);
   }
 
-  private getRotationFitScale(): number {
-    if (this.rotation % 180 === 0) return 1;
-
+  private getDisplayScale(): number {
     const { stage, image } = this.elements;
     const imageWidth = image.offsetWidth;
     const imageHeight = image.offsetHeight;
@@ -535,14 +577,22 @@ export class ImageViewer {
     const stageHeight = stage.clientHeight;
     if (!imageWidth || !imageHeight || !stageWidth || !stageHeight) return 1;
 
+    const rotated = this.rotation % 180 !== 0;
+    const displayedWidth = rotated ? imageHeight : imageWidth;
+    const displayedHeight = rotated ? imageWidth : imageHeight;
+    if (this.fitMode) {
+      return Math.min(stageWidth / displayedWidth, stageHeight / displayedHeight);
+    }
+
     const availableWidth = stageWidth * 0.92;
     const availableHeight = stageHeight * 0.82;
-    return Math.min(1, availableWidth / imageHeight, availableHeight / imageWidth);
+    const fitScale = Math.min(availableWidth / displayedWidth, availableHeight / displayedHeight);
+    return rotated ? Math.min(1, fitScale) : 1;
   }
 
-  private updateInfo(): void {
+  private updateInfo(displayScale = this.zoom * this.getDisplayScale()): void {
     const current = this.images[this.index];
-    if (current) this.elements.info.update(current, this.elements.image, this.zoom);
+    if (current) this.elements.info.update(current, this.elements.image, displayScale);
   }
 }
 
