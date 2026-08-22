@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.0] - 2026-08-23
+
+### added
+
+- 画像URLと元ページURLを選んでX，Facebook，URLコピーで共有する機能
+
+### changed
+
+- 共有処理をポップアップとビューアで共通化
+- 共有操作の互換性とアクセシビリティを改善
+- READMEと概要の機能説明を統一
+
+### fixed
+
+- 画像収集や初期化など重要な失敗をログに記録
+- ログに含まれるURL情報を匿名化
+
+## [0.0.4] - 2026-08-23
+
+### added
+
+- 表示中の画像を個別またはZIPでダウンロードする機能
+
+### changed
+
+- ホバーボタンを最小画像サイズの条件を満たす画像だけに表示
+- ビューアの初回表示を高速化し，画像収集をバックグラウンドで継続
+- 拡張機能のアイコンを更新
+
 ## [0.0.3] - 2026-08-22
 
 ### added
@@ -9,6 +38,7 @@ All notable changes to this project will be documented in this file.
 - 全画面表示，画像情報表示，90度回転
 - 画像全体を画面内に収めるフィット表示
 - フィット表示状態の保存とサイト間での引き継ぎ
+- 操作アイコンにLucideを導入
 
 ### changed
 
@@ -25,6 +55,7 @@ All notable changes to this project will be documented in this file.
 ### changed
 
 - READMEとチュートリアルを更新
+- ホイール操作の連続移動を抑制し，移動待機時間を調整
 
 ## [0.0.1] - 2026-08-21
 
