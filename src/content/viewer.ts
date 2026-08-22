@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide";
 import { getStorage, setStorage } from "../utils/storage";
-import type { GalleryImage } from "./collector";
+import { findImageIndex, type GalleryImage } from "./collector";
 import { downloadCurrentImage, downloadGalleryZip } from "./download";
 import viewerStyle from "./viewer.css";
 import { ImageInfoPanel } from "./viewer-info";
@@ -121,7 +121,6 @@ export class ImageViewer {
   private wheelCooldown = false;
   private wheelCooldownTimer: number | undefined;
   private isOpen = false;
-  private readonly fitModeReady: Promise<void>;
 
   constructor() {
     const { viewerHost, viewerShadow, hoverHost, hoverShadow } = createHosts();
@@ -207,7 +206,7 @@ export class ImageViewer {
     this.updateFullscreenButton();
     this.updateFitButton();
     this.setupEvents();
-    this.fitModeReady = this.restoreFitMode();
+    void this.restoreFitMode();
   }
 
   get open(): boolean {
@@ -216,7 +215,6 @@ export class ImageViewer {
 
   async openViewer(images: GalleryImage[], initialIndex = 0): Promise<void> {
     if (images.length === 0) return;
-    await this.fitModeReady;
     const wasOpen = this.isOpen;
     if (!wasOpen) {
       this.previousBodyOverflow = document.body?.style.overflow ?? "";
@@ -236,6 +234,14 @@ export class ImageViewer {
     this.resetZoom();
     this.render();
     this.elements.close.focus({ preventScroll: true });
+  }
+
+  replaceImages(images: GalleryImage[]): void {
+    if (!this.isOpen || images.length === 0) return;
+    const currentUrl = this.elements.image.currentSrc || this.elements.image.src;
+    this.images = images;
+    this.index = findImageIndex(images, currentUrl);
+    this.render();
   }
 
   closeViewer(): void {
@@ -555,6 +561,7 @@ export class ImageViewer {
       this.fitMode = false;
     }
     this.updateFitButton();
+    if (this.isOpen) this.applyTransform();
   }
 
   private resetSwipeVisuals(animate: boolean): void {

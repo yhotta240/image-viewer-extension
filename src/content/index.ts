@@ -1,7 +1,13 @@
 import { DEFAULT_SETTINGS, type ImageViewerSettings } from "../settings";
 import { logInfo } from "../utils/logger";
 import { getSettings, isEnabled } from "../utils/storage";
-import { collectGalleryImages, findImageIndex, isPotentialImageElement } from "./collector";
+import {
+  collectGalleryImages,
+  collectLoadedGalleryImages,
+  findImageIndex,
+  type GalleryImage,
+  isPotentialImageElement,
+} from "./collector";
 import { createImageViewer, type ImageViewer } from "./viewer";
 
 type OpenViewerMessage = {
@@ -12,10 +18,55 @@ type OpenViewerMessage = {
 let settings: ImageViewerSettings = DEFAULT_SETTINGS;
 let enabled = true;
 const viewer: ImageViewer = createImageViewer();
+let galleryCache: GalleryImage[] | null = null;
+let galleryCollection: Promise<GalleryImage[]> | null = null;
+let settingsVersion = 0;
+
+function collectFullGallery(): Promise<GalleryImage[]> {
+  if (galleryCache) return Promise.resolve(galleryCache);
+  if (galleryCollection) return galleryCollection;
+
+  const version = settingsVersion;
+  const pending = collectGalleryImages(settings).then((images) => {
+    if (version === settingsVersion) galleryCache = images;
+    return images;
+  });
+  galleryCollection = pending;
+  void pending.then(
+    () => {
+      if (galleryCollection === pending) galleryCollection = null;
+    },
+    () => {
+      if (galleryCollection === pending) galleryCollection = null;
+    },
+  );
+  return pending;
+}
+
+async function completeGalleryCollection(version: number): Promise<void> {
+  try {
+    const images = await collectFullGallery();
+    if (version === settingsVersion && viewer.open && images.length > 0) {
+      viewer.replaceImages(images);
+    }
+  } catch {
+    // 初期表示後の収集失敗では、表示中の一覧を維持する。
+  }
+}
 
 async function openGallery(sourceUrl?: string): Promise<void> {
   if (!enabled) return;
-  const images = await collectGalleryImages(settings);
+
+  const quickImages = collectLoadedGalleryImages(settings);
+  if (quickImages.length > 0) {
+    viewer.openViewer(quickImages, findImageIndex(quickImages, sourceUrl));
+    void logInfo(`画像ギャラリーを開きました (${quickImages.length}枚)`, "content", true);
+    const version = settingsVersion;
+    window.setTimeout(() => void completeGalleryCollection(version), 0);
+    return;
+  }
+
+  const images = await collectFullGallery();
   if (images.length === 0) {
     viewer.showToast("表示できる画像がありません");
     return;
@@ -111,6 +162,8 @@ async function initialize(): Promise<void> {
     if (changes.settings) {
       void getSettings().then((nextSettings) => {
         settings = nextSettings;
+        settingsVersion += 1;
+        galleryCache = null;
         if (!settings.showHoverButton) viewer.scheduleHoverHide();
       });
     }
