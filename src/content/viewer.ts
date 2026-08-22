@@ -6,6 +6,7 @@ import {
   Images,
   Maximize2,
   Minimize2,
+  RotateCw,
   X,
 } from "lucide";
 import type { GalleryImage } from "./collector";
@@ -22,6 +23,7 @@ const VIEWER_BACKDROP_OPACITY = 0.94;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
+  stage: HTMLDivElement;
   counter: HTMLSpanElement;
   image: HTMLImageElement;
   error: HTMLDivElement;
@@ -29,6 +31,7 @@ type ViewerElements = {
   next: HTMLButtonElement;
   fullscreen: HTMLButtonElement;
   info: ImageInfoPanel;
+  rotate: HTMLButtonElement;
   close: HTMLButtonElement;
   hover: HTMLButtonElement;
 };
@@ -87,6 +90,7 @@ export class ImageViewer {
   private images: GalleryImage[] = [];
   private index = 0;
   private zoom = 1;
+  private rotation = 0;
   private panX = 0;
   private panY = 0;
   private swipeOffsetY = 0;
@@ -133,11 +137,13 @@ export class ImageViewer {
     const fullscreen = makeButton("", "fullscreen", "全画面表示");
     appendLucideIcon(fullscreen, Maximize2, 18);
     const info = new ImageInfoPanel();
+    const rotate = makeButton("", "rotate", "90度回転");
+    appendLucideIcon(rotate, RotateCw, 18);
     const close = makeButton("", "close", "閉じる");
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(fullscreen, info.element, close, counter);
+    topbar.append(rotate, fullscreen, info.element, close, counter);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -168,6 +174,7 @@ export class ImageViewer {
     this.hoverHost.style.display = "none";
     this.elements = {
       viewer,
+      stage,
       counter,
       image,
       error,
@@ -175,6 +182,7 @@ export class ImageViewer {
       next,
       fullscreen,
       info,
+      rotate,
       close,
       hover,
     };
@@ -275,11 +283,18 @@ export class ImageViewer {
   }
 
   private setupEvents(): void {
-    const { viewer, close, prev, next, fullscreen, image } = this.elements;
+    const { viewer, close, prev, next, fullscreen, rotate, image } = this.elements;
     close.addEventListener("click", () => this.closeViewer());
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
     fullscreen.addEventListener("click", () => void this.toggleFullscreen());
+    rotate.addEventListener("click", () => {
+      this.rotation = (this.rotation + 90) % 360;
+      this.panX = 0;
+      this.panY = 0;
+      this.swipeOffsetY = 0;
+      this.applyTransform();
+    });
     document.addEventListener("fullscreenchange", () => this.updateFullscreenButton());
     viewer.addEventListener(
       "wheel",
@@ -490,6 +505,7 @@ export class ImageViewer {
 
   private resetZoom(): void {
     this.zoom = 1;
+    this.rotation = 0;
     this.panX = 0;
     this.panY = 0;
     this.swipeOffsetY = 0;
@@ -507,9 +523,25 @@ export class ImageViewer {
   }
 
   private applyTransform(): void {
-    this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) scale(${this.zoom})`;
+    const fitScale = this.getRotationFitScale();
+    this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) rotate(${this.rotation}deg) scale(${this.zoom * fitScale})`;
     this.elements.image.classList.toggle("zoomed", this.zoom > 1);
     this.updateInfo();
+  }
+
+  private getRotationFitScale(): number {
+    if (this.rotation % 180 === 0) return 1;
+
+    const { stage, image } = this.elements;
+    const imageWidth = image.offsetWidth;
+    const imageHeight = image.offsetHeight;
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
+    if (!imageWidth || !imageHeight || !stageWidth || !stageHeight) return 1;
+
+    const availableWidth = stageWidth * 0.92;
+    const availableHeight = stageHeight * 0.82;
+    return Math.min(1, availableWidth / imageHeight, availableHeight / imageWidth);
   }
 
   private updateInfo(): void {

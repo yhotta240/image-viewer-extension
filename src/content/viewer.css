@@ -61,6 +61,7 @@ button:hover {
 .close,
 .fullscreen,
 .info-button,
+.rotate,
 .nav,
 .hover-button {
   display: inline-flex;
@@ -91,6 +92,19 @@ button:hover {
 }
 
 .fullscreen:hover {
+  background: transparent;
+}
+
+.rotate {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  font-size: 0;
+}
+
+.rotate:hover {
   background: transparent;
 }
 
@@ -180,7 +194,7 @@ button:hover {
   max-height: 82vh;
   object-fit: contain;
   user-select: none;
-  transform-origin: center;
+  transform-origin: center center;
   cursor: zoom-in;
   touch-action: none;
 }
