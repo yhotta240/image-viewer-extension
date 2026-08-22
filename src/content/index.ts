@@ -30,13 +30,36 @@ function getImageTarget(target: EventTarget | null): HTMLImageElement | null {
 }
 
 function setupHoverActivation(): void {
+  let hoveredImage: HTMLImageElement | null = null;
+  const showHoverButtonIfEligible = (image: HTMLImageElement): void => {
+    if (
+      hoveredImage !== image ||
+      !enabled ||
+      !settings.showHoverButton ||
+      viewer.open ||
+      !isPotentialImageElement(image, settings.minImageSize)
+    ) {
+      return;
+    }
+    viewer.showHoverButton(image, () => void openGallery(image.currentSrc || image.src));
+  };
+
   document.addEventListener(
     "pointerover",
     (event) => {
-      if (!enabled || !settings.showHoverButton || viewer.open) return;
       const image = getImageTarget(event.target);
-      if (!image || !isPotentialImageElement(image, settings.minImageSize)) return;
-      viewer.showHoverButton(image, () => void openGallery(image.currentSrc || image.src));
+      if (!image) return;
+      hoveredImage = image;
+      showHoverButtonIfEligible(image);
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "load",
+    (event) => {
+      const image = getImageTarget(event.target);
+      if (image) showHoverButtonIfEligible(image);
     },
     true,
   );
@@ -45,7 +68,10 @@ function setupHoverActivation(): void {
     "pointerout",
     (event) => {
       const image = getImageTarget(event.target);
-      if (image && event.relatedTarget !== image) viewer.scheduleHoverHide();
+      if (image && event.relatedTarget !== image) {
+        if (hoveredImage === image) hoveredImage = null;
+        viewer.scheduleHoverHide();
+      }
     },
     true,
   );
