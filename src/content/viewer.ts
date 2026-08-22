@@ -23,6 +23,7 @@ const VIEWER_BACKDROP_OPACITY = 0.94;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
+  stage: HTMLDivElement;
   counter: HTMLSpanElement;
   image: HTMLImageElement;
   error: HTMLDivElement;
@@ -173,6 +174,7 @@ export class ImageViewer {
     this.hoverHost.style.display = "none";
     this.elements = {
       viewer,
+      stage,
       counter,
       image,
       error,
@@ -521,9 +523,25 @@ export class ImageViewer {
   }
 
   private applyTransform(): void {
-    this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) rotate(${this.rotation}deg) scale(${this.zoom})`;
+    const fitScale = this.getRotationFitScale();
+    this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) rotate(${this.rotation}deg) scale(${this.zoom * fitScale})`;
     this.elements.image.classList.toggle("zoomed", this.zoom > 1);
     this.updateInfo();
+  }
+
+  private getRotationFitScale(): number {
+    if (this.rotation % 180 === 0) return 1;
+
+    const { stage, image } = this.elements;
+    const imageWidth = image.offsetWidth;
+    const imageHeight = image.offsetHeight;
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
+    if (!imageWidth || !imageHeight || !stageWidth || !stageHeight) return 1;
+
+    const availableWidth = stageWidth * 0.92;
+    const availableHeight = stageHeight * 0.82;
+    return Math.min(1, availableWidth / imageHeight, availableHeight / imageWidth);
   }
 
   private updateInfo(): void {
