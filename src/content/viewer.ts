@@ -1,3 +1,11 @@
+import {
+  ChevronLeft,
+  ChevronRight,
+  createElement as createLucideElement,
+  type IconNode,
+  Images,
+  X,
+} from "lucide";
 import type { GalleryImage } from "./collector";
 import viewerStyle from "./viewer.css";
 
@@ -59,21 +67,11 @@ function makeButton(label: string, className: string, title: string): HTMLButton
   return button;
 }
 
-function appendOpenIcon(button: HTMLButtonElement): void {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
+function appendLucideIcon(button: HTMLButtonElement, icon: IconNode, size: number): void {
+  const svg = createLucideElement(icon, { width: size, height: size });
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("focusable", "false");
-  svg.setAttribute("width", "14");
-  svg.setAttribute("height", "14");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M8 16 16 8M10 8h6v6");
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-width", "1.8");
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-linejoin", "round");
-  svg.append(path);
+  svg.style.display = "block";
   button.append(svg);
 }
 
@@ -128,6 +126,7 @@ export class ImageViewer {
     const topbar = document.createElement("div");
     topbar.className = "topbar";
     const close = makeButton("", "close", "閉じる");
+    appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
     topbar.append(close, counter);
@@ -144,11 +143,13 @@ export class ImageViewer {
 
     const prev = makeButton("", "nav prev", "前の画像");
     const next = makeButton("", "nav next", "次の画像");
+    appendLucideIcon(prev, ChevronLeft, 22);
+    appendLucideIcon(next, ChevronRight, 22);
     stage.append(prev, next);
     viewer.append(topbar, stage);
 
     const hover = makeButton("", "hover-button", "Image Viewerで開く (Alt + クリック)");
-    appendOpenIcon(hover);
+    appendLucideIcon(hover, Images, 14);
     hover.hidden = true;
     hover.addEventListener("pointerenter", () => this.cancelHoverHide());
     hover.addEventListener("pointerleave", () => this.scheduleHoverHide());
@@ -157,7 +158,16 @@ export class ImageViewer {
     hoverShadow.append(hoverStyle, hover);
     this.host.style.display = "none";
     this.hoverHost.style.display = "none";
-    this.elements = { viewer, counter, image, error, prev, next, close, hover };
+    this.elements = {
+      viewer,
+      counter,
+      image,
+      error,
+      prev,
+      next,
+      close,
+      hover,
+    };
     this.setupEvents();
   }
 

@@ -79,26 +79,6 @@ button:hover {
   background: transparent;
 }
 
-.close::before,
-.close::after {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 18px;
-  height: 2px;
-  border-radius: 1px;
-  background: currentColor;
-  content: "";
-}
-
-.close::before {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.close::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-
 .stage {
   position: relative;
   display: grid;
@@ -162,22 +142,6 @@ button:hover {
 
 .nav:hover {
   background: transparent;
-}
-
-.nav::before {
-  width: 13px;
-  height: 13px;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  content: "";
-}
-
-.prev::before {
-  transform: translateX(3px) rotate(-135deg);
-}
-
-.next::before {
-  transform: translateX(-3px) rotate(45deg);
 }
 
 .hover-button {
