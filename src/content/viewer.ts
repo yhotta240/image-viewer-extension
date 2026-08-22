@@ -19,7 +19,6 @@ const HOVER_ANCHOR_NAME = "--image-viewer-target";
 const WHEEL_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 90;
 const SWIPE_CLOSE_THRESHOLD = 80;
-const VIEWER_BACKDROP_OPACITY = 0.94;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
@@ -143,7 +142,7 @@ export class ImageViewer {
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(rotate, fullscreen, info.element, close, counter);
+    topbar.append(rotate, fullscreen, info.element, close);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -160,7 +159,7 @@ export class ImageViewer {
     appendLucideIcon(prev, ChevronLeft, 22);
     appendLucideIcon(next, ChevronRight, 22);
     stage.append(prev, next);
-    viewer.append(topbar, stage);
+    viewer.append(topbar, stage, counter);
 
     const hover = makeButton("", "hover-button", "Image Viewerで開く (Alt + クリック)");
     appendLucideIcon(hover, Images, 14);
@@ -402,8 +401,6 @@ export class ImageViewer {
         const dragY = dy > 0 && dy > Math.abs(dx) ? dy : 0;
         this.swipeOffsetY = dragY;
         this.applyTransform();
-        const backdropOpacity = Math.max(0.2, VIEWER_BACKDROP_OPACITY - dragY / 400);
-        viewer.style.setProperty("--viewer-backdrop-opacity", String(backdropOpacity));
       }
     });
     const finishPointer = (event: PointerEvent) => {
@@ -464,11 +461,10 @@ export class ImageViewer {
   }
 
   private resetSwipeVisuals(animate: boolean): void {
-    const { image, viewer } = this.elements;
+    const { image } = this.elements;
     image.style.transition = animate ? "transform 160ms ease" : "none";
     this.swipeOffsetY = 0;
     this.applyTransform();
-    viewer.style.setProperty("--viewer-backdrop-opacity", String(VIEWER_BACKDROP_OPACITY));
     if (animate) {
       window.setTimeout(() => {
         if (!this.pointerStart) image.style.transition = "";
