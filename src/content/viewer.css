@@ -60,6 +60,7 @@ button:hover {
 
 .close,
 .fullscreen,
+.info-button,
 .nav,
 .hover-button {
   display: inline-flex;
@@ -91,6 +92,78 @@ button:hover {
 
 .fullscreen:hover {
   background: transparent;
+}
+
+.info-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.info-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  font-size: 0;
+}
+
+.info-button:hover {
+  background: transparent;
+}
+
+.info-panel {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% - 1px);
+  right: 0;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 24px));
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(20, 20, 20, 0.96);
+  user-select: text;
+  touch-action: auto;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
+}
+
+.info-menu:hover .info-panel,
+.info-menu:focus-within .info-panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  padding: 7px 0;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.info-label {
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+}
+
+.info-value {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.9);
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .stage {
