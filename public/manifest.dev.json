@@ -8,6 +8,7 @@
     "48": "icons/icon.png"
   },
   "permissions": ["storage", "tabs", "contextMenus", "downloads"],
+  "host_permissions": ["https://*/*", "http://*/*"],
   "action": {
     "default_popup": "popup.html"
   },

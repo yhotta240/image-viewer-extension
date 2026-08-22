@@ -30,9 +30,24 @@ async function fetchBlob(url: string): Promise<Blob> {
   return response.blob();
 }
 
+async function fetchRemoteBlob(url: string): Promise<FetchedImage | null> {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "FETCH_IMAGE", url });
+    if (!response?.ok || !response.dataUrl) return null;
+    return { url: response.url || url, blob: await fetchBlob(response.dataUrl) };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchImage(image: GalleryImage): Promise<FetchedImage | null> {
   for (const url of [image.url, image.fallbackUrl]) {
     if (!url) continue;
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      const fetched = await fetchRemoteBlob(url);
+      if (fetched) return fetched;
+      continue;
+    }
     try {
       return { url, blob: await fetchBlob(url) };
     } catch {}
