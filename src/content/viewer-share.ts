@@ -7,6 +7,7 @@ type ViewerShareOptions = {
   getImageUrl: () => string;
   getPageUrl: () => string;
   showToast: (message: string) => void;
+  logFailure: (message: string, detail?: string) => void;
 };
 
 function makeButton(label: string, className: string, title: string): HTMLButtonElement {
@@ -153,6 +154,7 @@ export class ViewerShareMenu {
     const config = this.getShareConfig();
     if (!config) {
       this.options.showToast("共有するURLを取得できませんでした");
+      this.options.logFailure("共有するURLを取得できませんでした");
       return;
     }
 
@@ -160,6 +162,7 @@ export class ViewerShareMenu {
     this.close();
     if (!success) {
       this.options.showToast("共有できませんでした");
+      this.options.logFailure("共有に失敗しました", config.url);
       return;
     }
 

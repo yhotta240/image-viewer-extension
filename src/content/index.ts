@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, type ImageViewerSettings } from "../settings";
-import { logInfo } from "../utils/logger";
+import { logError } from "../utils/logger";
 import { getSettings, isEnabled } from "../utils/storage";
 import {
   collectGalleryImages,
@@ -137,8 +137,9 @@ async function completeGalleryCollection(
     ) {
       viewer.replaceImages(images);
     }
-  } catch {
+  } catch (error) {
     // 初期表示後の収集失敗では、表示中の一覧を維持する。
+    void logError("表示中の画像収集に失敗しました", "content", error);
   }
 }
 
@@ -159,7 +160,6 @@ async function openGallery(sourceUrl?: string): Promise<void> {
   const quickImages = collectLoadedGalleryImages(settings);
   if (quickImages.length > 0) {
     viewer.openViewer(quickImages, findImageIndex(quickImages, sourceUrl));
-    void logInfo(`画像ギャラリーを開きました (${quickImages.length}枚)`, "content", true);
     const expectedSettingsVersion = settingsVersion;
     const expectedPageVersion = pageVersion;
     window.setTimeout(
@@ -169,13 +169,19 @@ async function openGallery(sourceUrl?: string): Promise<void> {
     return;
   }
 
-  const images = await collectFullGallery();
+  let images: GalleryImage[];
+  try {
+    images = await collectFullGallery();
+  } catch (error) {
+    void logError("画像の収集に失敗しました", "content", error);
+    viewer.showToast("画像を収集できませんでした");
+    return;
+  }
   if (images.length === 0) {
     viewer.showToast("表示できる画像がありません");
     return;
   }
   viewer.openViewer(images, findImageIndex(images, sourceUrl));
-  void logInfo(`画像ギャラリーを開きました (${images.length}枚)`, "content", true);
 }
 
 function getImageTarget(target: EventTarget | null): HTMLImageElement | null {
@@ -273,10 +279,9 @@ async function initialize(): Promise<void> {
       });
     }
   });
-
-  void logInfo(`ページ読み込み: ${document.title || location.pathname}`, "content", true);
 }
 
 void initialize().catch((error) => {
   console.error("Image Viewerの初期化に失敗しました", error);
+  void logError("Image Viewerの初期化に失敗しました", "content", error);
 });
