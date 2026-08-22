@@ -63,7 +63,7 @@ function extractBackgroundUrls(value: string): string[] {
   return urls;
 }
 
-function collectRawCandidates(settings: ImageViewerSettings): RawCandidate[] {
+function collectImageCandidates(): RawCandidate[] {
   const candidates: RawCandidate[] = [];
 
   for (const image of Array.from(document.images)) {
@@ -79,6 +79,12 @@ function collectRawCandidates(settings: ImageViewerSettings): RawCandidate[] {
     const fallbackUrl = linkedCandidate ? sourceUrl : undefined;
     candidates.push({ url, fallbackUrl, source: "img", element: image });
   }
+
+  return candidates;
+}
+
+function collectRawCandidates(settings: ImageViewerSettings): RawCandidate[] {
+  const candidates = collectImageCandidates();
 
   if (settings.includeBackgroundImages) {
     const elements = [
@@ -136,6 +142,34 @@ export function isPotentialImageElement(element: HTMLImageElement, minImageSize:
   );
 }
 
+function isLargeEnough(size: ImageSize, minImageSize: number): boolean {
+  return Boolean(size && size.width >= minImageSize && size.height >= minImageSize);
+}
+
+function toGalleryImages(candidates: RawCandidate[]): GalleryImage[] {
+  const accepted: GalleryImage[] = [];
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    const key = `${normalizeUrl(candidate.url)}|${normalizeUrl(candidate.fallbackUrl ?? "")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    accepted.push({
+      url: candidate.url,
+      fallbackUrl: candidate.fallbackUrl,
+      source: candidate.source,
+      alt: candidate.element instanceof HTMLImageElement ? candidate.element.alt : undefined,
+    });
+  }
+  return accepted;
+}
+
+export function collectLoadedGalleryImages(settings: ImageViewerSettings): GalleryImage[] {
+  const candidates = collectImageCandidates().filter((candidate) =>
+    isLargeEnough(getElementSize(candidate), settings.minImageSize),
+  );
+  return toGalleryImages(candidates);
+}
+
 export function findImageIndex(images: GalleryImage[], sourceUrl?: string): number {
   if (!sourceUrl) return 0;
   const normalized = normalizeUrl(sourceUrl);
@@ -175,28 +209,10 @@ export async function collectGalleryImages(settings: ImageViewerSettings): Promi
         getSize(candidate, candidate.url),
         candidate.fallbackUrl ? getSize(candidate, candidate.fallbackUrl) : Promise.resolve(null),
       ]);
-      const isLargeEnough = sizes.some((size) =>
-        Boolean(
-          size && size.width >= settings.minImageSize && size.height >= settings.minImageSize,
-        ),
-      );
-      return isLargeEnough ? candidate : null;
+      return sizes.some((size) => isLargeEnough(size, settings.minImageSize)) ? candidate : null;
     }),
   );
-
-  const accepted: GalleryImage[] = [];
-  const seen = new Set<string>();
-  for (const candidate of evaluated) {
-    if (!candidate) continue;
-    const key = `${normalizeUrl(candidate.url)}|${normalizeUrl(candidate.fallbackUrl ?? "")}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    accepted.push({
-      url: candidate.url,
-      fallbackUrl: candidate.fallbackUrl,
-      source: candidate.source,
-      alt: candidate.element instanceof HTMLImageElement ? candidate.element.alt : undefined,
-    });
-  }
-  return accepted;
+  return toGalleryImages(
+    evaluated.filter((candidate): candidate is RawCandidate => candidate !== null),
+  );
 }
