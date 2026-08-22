@@ -1,12 +1,6 @@
 export type Theme = "system" | "light" | "dark";
 
-export type SharePlatform = "twitter" | "facebook" | "copy";
-
-export interface ShareConfig {
-  title: string;
-  url: string;
-  text?: string;
-}
+export type { ShareConfig, SharePlatform } from "../utils/share";
 
 export type ManifestMetadata = {
   issues_url?: string;
