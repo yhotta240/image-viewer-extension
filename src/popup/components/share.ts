@@ -1,45 +1,4 @@
-import type { ShareConfig, SharePlatform } from "../types";
-
-/**
- * 各プラットフォームのシェアURLを生成
- */
-function getShareUrl(platform: SharePlatform, config: ShareConfig): string | null {
-  const encodedUrl = encodeURIComponent(config.url);
-  const encodedText = encodeURIComponent(config.text || config.title);
-
-  switch (platform) {
-    case "twitter":
-      return `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
-    case "facebook":
-      return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-    case "copy":
-      return null; // コピーはURLを開かない
-    default:
-      return null;
-  }
-}
-
-/**
- * シェアを実行
- */
-async function executeShare(platform: SharePlatform, config: ShareConfig): Promise<boolean> {
-  if (platform === "copy") {
-    try {
-      await navigator.clipboard.writeText(config.url);
-      return true;
-    } catch (err) {
-      console.error("Failed to copy to clipboard", err);
-      return false;
-    }
-  }
-
-  const shareUrl = getShareUrl(platform, config);
-  if (shareUrl) {
-    window.open(shareUrl, "_blank", "width=600,height=400");
-    return true;
-  }
-  return false;
-}
+import { executeShare, type ShareConfig, type SharePlatform } from "../../utils/share";
 
 /**
  * シェア機能の初期化

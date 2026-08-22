@@ -17,6 +17,7 @@ import { findImageIndex, type GalleryImage } from "./collector";
 import { downloadCurrentImage, downloadGalleryZip } from "./download";
 import viewerStyle from "./viewer.css";
 import { ImageInfoPanel } from "./viewer-info";
+import { ViewerShareMenu } from "./viewer-share";
 
 const HOST_ID = "image-viewer-extension-root";
 const HOVER_HOST_ID = "image-viewer-extension-hover-root";
@@ -121,6 +122,8 @@ export class ImageViewer {
   private wheelCooldown = false;
   private wheelCooldownTimer: number | undefined;
   private isOpen = false;
+  private sourcePageUrl = "";
+  private readonly share: ViewerShareMenu;
 
   constructor() {
     const { viewerHost, viewerShadow, hoverHost, hoverShadow } = createHosts();
@@ -157,7 +160,6 @@ export class ImageViewer {
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(download, zip, fit, rotate, fullscreen, info.element, close);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -168,6 +170,13 @@ export class ImageViewer {
     const error = document.createElement("div");
     error.className = "error";
     stage.append(image, error);
+
+    const share = new ViewerShareMenu({
+      getImageUrl: () => image.currentSrc || image.src,
+      getPageUrl: () => this.sourcePageUrl,
+      showToast: (message) => this.showToast(message),
+    });
+    topbar.append(download, zip, fit, rotate, share.element, fullscreen, info.element, close);
 
     const prev = makeButton("", "nav prev", "前の画像");
     const next = makeButton("", "nav next", "次の画像");
@@ -203,6 +212,7 @@ export class ImageViewer {
       close,
       hover,
     };
+    this.share = share;
     this.updateFullscreenButton();
     this.updateFitButton();
     this.setupEvents();
@@ -218,6 +228,7 @@ export class ImageViewer {
     const wasOpen = this.isOpen;
     if (!wasOpen) {
       this.previousBodyOverflow = document.body?.style.overflow ?? "";
+      this.sourcePageUrl = location.href;
       if (document.body) document.body.style.overflow = "hidden";
     }
     this.images = images;
@@ -227,6 +238,12 @@ export class ImageViewer {
     this.resetSwipeVisuals(false);
     this.updateFullscreenButton();
     this.clearHoverAnchor();
+    if (!wasOpen) {
+      this.share.reset();
+    } else {
+      this.share.close();
+      this.share.update();
+    }
     this.hoverHost.style.display = "none";
     this.elements.hover.hidden = true;
     this.elements.viewer.hidden = false;
@@ -249,6 +266,7 @@ export class ImageViewer {
     this.isOpen = false;
     this.resetWheelState();
     this.resetSwipeVisuals(false);
+    this.share.close();
     if (document.fullscreenElement === this.host) void document.exitFullscreen();
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
@@ -366,7 +384,9 @@ export class ImageViewer {
       if (!this.isOpen) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        this.closeViewer();
+        if (!this.share.handleEscape()) {
+          this.closeViewer();
+        }
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         this.move(-1);
@@ -378,15 +398,18 @@ export class ImageViewer {
     image.addEventListener("load", () => {
       this.elements.error.textContent = "";
       this.applyTransform();
+      this.share.update();
     });
     image.addEventListener("error", () => {
       const current = this.images[this.index];
       if (current?.fallbackUrl && !this.fallbackAttempted && image.src !== current.fallbackUrl) {
         this.fallbackAttempted = true;
         image.src = current.fallbackUrl;
+        this.share.update();
         return;
       }
       this.elements.error.textContent = "この画像を表示できません";
+      this.share.update();
       this.updateInfo();
     });
     image.addEventListener("click", () => {
@@ -416,11 +439,13 @@ export class ImageViewer {
     );
     viewer.addEventListener("pointerdown", (event) => {
       if (
-        event.target instanceof Element &&
-        (event.target.closest("button") || event.target.closest(".info-panel"))
+        this.share.containsTarget(event.target) ||
+        (event.target instanceof Element &&
+          (event.target.closest("button") || event.target.closest(".info-panel")))
       ) {
         return;
       }
+      this.share.close();
       const captureTarget = event.target === image ? image : viewer;
       captureTarget.setPointerCapture(event.pointerId);
       this.didDrag = false;
@@ -619,6 +644,7 @@ export class ImageViewer {
     this.elements.error.textContent = "";
     this.fallbackAttempted = false;
     this.elements.image.src = current.url;
+    this.share.update();
     this.applyTransform();
   }
 
