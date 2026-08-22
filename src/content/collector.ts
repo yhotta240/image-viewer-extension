@@ -127,8 +127,13 @@ function getElementSize(candidate: RawCandidate): ImageSize {
   return null;
 }
 
-export function isPotentialImageElement(element: HTMLImageElement): boolean {
-  return Boolean(toSafeUrl(element.currentSrc || element.src)) && hasVisibleArea(element);
+export function isPotentialImageElement(element: HTMLImageElement, minImageSize: number): boolean {
+  return (
+    Boolean(toSafeUrl(element.currentSrc || element.src)) &&
+    hasVisibleArea(element) &&
+    element.naturalWidth >= minImageSize &&
+    element.naturalHeight >= minImageSize
+  );
 }
 
 export function findImageIndex(images: GalleryImage[], sourceUrl?: string): number {
