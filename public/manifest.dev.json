@@ -7,7 +7,7 @@
   "icons": {
     "48": "icons/icon.png"
   },
-  "permissions": ["storage", "tabs", "contextMenus"],
+  "permissions": ["storage", "tabs", "contextMenus", "downloads"],
   "action": {
     "default_popup": "popup.html"
   },

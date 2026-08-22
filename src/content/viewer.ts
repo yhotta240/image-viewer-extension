@@ -1,8 +1,10 @@
 import {
+  Archive,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
   createElement as createLucideElement,
+  Download,
   type IconNode,
   Images,
   Maximize2,
@@ -12,6 +14,7 @@ import {
 } from "lucide";
 import { getStorage, setStorage } from "../utils/storage";
 import type { GalleryImage } from "./collector";
+import { downloadCurrentImage, downloadGalleryZip } from "./download";
 import viewerStyle from "./viewer.css";
 import { ImageInfoPanel } from "./viewer-info";
 
@@ -30,6 +33,8 @@ type ViewerElements = {
   error: HTMLDivElement;
   prev: HTMLButtonElement;
   next: HTMLButtonElement;
+  download: HTMLButtonElement;
+  zip: HTMLButtonElement;
   fullscreen: HTMLButtonElement;
   info: ImageInfoPanel;
   fit: HTMLButtonElement;
@@ -138,6 +143,10 @@ export class ImageViewer {
 
     const topbar = document.createElement("div");
     topbar.className = "topbar";
+    const download = makeButton("", "download", "画像をダウンロード");
+    appendLucideIcon(download, Download, 18);
+    const zip = makeButton("", "download-zip", "すべての画像をZIPでダウンロード");
+    appendLucideIcon(zip, Archive, 18);
     const fullscreen = makeButton("", "fullscreen", "全画面表示");
     appendLucideIcon(fullscreen, Maximize2, 18);
     const info = new ImageInfoPanel();
@@ -149,7 +158,7 @@ export class ImageViewer {
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(fit, rotate, fullscreen, info.element, close);
+    topbar.append(download, zip, fit, rotate, fullscreen, info.element, close);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -186,6 +195,8 @@ export class ImageViewer {
       error,
       prev,
       next,
+      download,
+      zip,
       fullscreen,
       info,
       fit,
@@ -294,10 +305,13 @@ export class ImageViewer {
   }
 
   private setupEvents(): void {
-    const { viewer, close, prev, next, fullscreen, fit, rotate, image } = this.elements;
+    const { viewer, close, prev, next, download, zip, fullscreen, fit, rotate, image } =
+      this.elements;
     close.addEventListener("click", () => this.closeViewer());
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
+    download.addEventListener("click", () => void this.handleCurrentDownload());
+    zip.addEventListener("click", () => void this.handleZipDownload());
     fullscreen.addEventListener("click", () => void this.toggleFullscreen());
     fit.addEventListener("click", () => {
       this.fitMode = !this.fitMode;
@@ -473,6 +487,45 @@ export class ImageViewer {
       }
     } catch {
       this.showToast("全画面表示を利用できません");
+    }
+  }
+
+  private async handleCurrentDownload(): Promise<void> {
+    const { download, image } = this.elements;
+    const current = this.images[this.index];
+    if (!current || download.disabled) return;
+
+    download.disabled = true;
+    try {
+      const result = await downloadCurrentImage(current, image.currentSrc || image.src);
+      this.showToast(
+        result.ok
+          ? `画像のダウンロードを開始しました: ${result.filename}`
+          : "画像をダウンロードできませんでした",
+      );
+    } finally {
+      download.disabled = false;
+    }
+  }
+
+  private async handleZipDownload(): Promise<void> {
+    const { zip } = this.elements;
+    if (zip.disabled || this.images.length === 0) return;
+
+    zip.disabled = true;
+    try {
+      const result = await downloadGalleryZip(this.images);
+      if (!result.ok) {
+        this.showToast("ZIPを作成できませんでした");
+      } else if (result.failed > 0) {
+        this.showToast(
+          `ZIPをダウンロードしました（成功${result.downloaded}枚 / 失敗${result.failed}枚）`,
+        );
+      } else {
+        this.showToast(`ZIPをダウンロードしました（${result.downloaded}枚）`);
+      }
+    } finally {
+      zip.disabled = false;
     }
   }
 

@@ -76,6 +76,8 @@ button:hover {
 
 .close,
 .fullscreen,
+.download,
+.download-zip,
 .info-button,
 .fit,
 .rotate,
@@ -110,6 +112,27 @@ button:hover {
 
 .fullscreen:hover {
   background: transparent;
+}
+
+.download,
+.download-zip {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  font-size: 0;
+}
+
+.download:hover,
+.download-zip:hover {
+  background: transparent;
+}
+
+.download:disabled,
+.download-zip:disabled {
+  cursor: wait;
+  opacity: 0.45;
 }
 
 .rotate {

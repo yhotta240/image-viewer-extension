@@ -9,7 +9,8 @@
   },
   "permissions": [
     "storage",
-    "contextMenus"
+    "contextMenus",
+    "downloads"
   ],
   "action": {
     "default_popup": "popup.html"

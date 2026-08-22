@@ -20,6 +20,15 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   });
 });
 
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "DOWNLOAD_IMAGE") return;
+  void chrome.downloads
+    .download({ url: message.url, filename: message.filename, saveAs: false })
+    .then(() => sendResponse({ ok: true }))
+    .catch(() => sendResponse({ ok: false }));
+  return true;
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
   createContextMenu();
   if (details.reason === "install") {
