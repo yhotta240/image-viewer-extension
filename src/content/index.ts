@@ -35,7 +35,7 @@ function setupHoverActivation(): void {
     (event) => {
       if (!enabled || !settings.showHoverButton || viewer.open) return;
       const image = getImageTarget(event.target);
-      if (!image || !isPotentialImageElement(image)) return;
+      if (!image || !isPotentialImageElement(image, settings.minImageSize)) return;
       viewer.showHoverButton(image, () => void openGallery(image.currentSrc || image.src));
     },
     true,
@@ -57,7 +57,7 @@ function setupAltClickActivation(): void {
     (event) => {
       if (!enabled || !event.altKey || event.button !== 0) return;
       const image = getImageTarget(event.target);
-      if (!image || !isPotentialImageElement(image)) return;
+      if (!image || !isPotentialImageElement(image, settings.minImageSize)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       void openGallery(image.currentSrc || image.src);
