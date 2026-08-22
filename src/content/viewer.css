@@ -59,6 +59,7 @@ button:hover {
 }
 
 .close,
+.fullscreen,
 .nav,
 .hover-button {
   display: inline-flex;
@@ -75,7 +76,20 @@ button:hover {
   font-size: 0;
 }
 
+.fullscreen {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  font-size: 0;
+}
+
 .close:hover {
+  background: transparent;
+}
+
+.fullscreen:hover {
   background: transparent;
 }
 

@@ -4,6 +4,8 @@ import {
   createElement as createLucideElement,
   type IconNode,
   Images,
+  Maximize2,
+  Minimize2,
   X,
 } from "lucide";
 import type { GalleryImage } from "./collector";
@@ -24,6 +26,7 @@ type ViewerElements = {
   error: HTMLDivElement;
   prev: HTMLButtonElement;
   next: HTMLButtonElement;
+  fullscreen: HTMLButtonElement;
   close: HTMLButtonElement;
   hover: HTMLButtonElement;
 };
@@ -125,11 +128,13 @@ export class ImageViewer {
 
     const topbar = document.createElement("div");
     topbar.className = "topbar";
+    const fullscreen = makeButton("", "fullscreen", "全画面表示");
+    appendLucideIcon(fullscreen, Maximize2, 18);
     const close = makeButton("", "close", "閉じる");
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(close, counter);
+    topbar.append(fullscreen, close, counter);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -165,9 +170,11 @@ export class ImageViewer {
       error,
       prev,
       next,
+      fullscreen,
       close,
       hover,
     };
+    this.updateFullscreenButton();
     this.setupEvents();
   }
 
@@ -186,6 +193,7 @@ export class ImageViewer {
     this.isOpen = true;
     this.resetWheelState();
     this.resetSwipeVisuals(false);
+    this.updateFullscreenButton();
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.elements.hover.hidden = true;
@@ -201,6 +209,7 @@ export class ImageViewer {
     this.isOpen = false;
     this.resetWheelState();
     this.resetSwipeVisuals(false);
+    if (document.fullscreenElement === this.host) void document.exitFullscreen();
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
     this.clearHoverAnchor();
@@ -262,10 +271,12 @@ export class ImageViewer {
   }
 
   private setupEvents(): void {
-    const { viewer, close, prev, next, image } = this.elements;
+    const { viewer, close, prev, next, fullscreen, image } = this.elements;
     close.addEventListener("click", () => this.closeViewer());
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
+    fullscreen.addEventListener("click", () => void this.toggleFullscreen());
+    document.addEventListener("fullscreenchange", () => this.updateFullscreenButton());
     viewer.addEventListener(
       "wheel",
       (event) => {
@@ -403,6 +414,28 @@ export class ImageViewer {
     this.wheelCooldownTimer = undefined;
     this.wheelDelta = 0;
     this.wheelCooldown = false;
+  }
+
+  private async toggleFullscreen(): Promise<void> {
+    try {
+      if (document.fullscreenElement === this.host) {
+        await document.exitFullscreen();
+      } else {
+        await this.host.requestFullscreen();
+      }
+    } catch {
+      this.showToast("全画面表示を利用できません");
+    }
+  }
+
+  private updateFullscreenButton(): void {
+    const isFullscreen = document.fullscreenElement === this.host;
+    const { fullscreen } = this.elements;
+    const title = isFullscreen ? "全画面表示を終了" : "全画面表示";
+    fullscreen.title = title;
+    fullscreen.setAttribute("aria-label", title);
+    fullscreen.replaceChildren();
+    appendLucideIcon(fullscreen, isFullscreen ? Minimize2 : Maximize2, 18);
   }
 
   private resetSwipeVisuals(animate: boolean): void {
