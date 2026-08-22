@@ -34,8 +34,10 @@ let galleryCache: GalleryCache | null = null;
 let galleryCollection: GalleryCollection | null = null;
 let settingsVersion = 0;
 let pageVersion = 0;
+let galleryRefreshTimer: number | undefined;
 
 const extensionHostSelector = "#image-viewer-extension-root, #image-viewer-extension-hover-root";
+const GALLERY_REFRESH_DEBOUNCE_MS = 300;
 
 function isExtensionMutation(record: MutationRecord): boolean {
   const target = record.target instanceof Element ? record.target : record.target.parentElement;
@@ -59,6 +61,7 @@ function setupGalleryInvalidation(): void {
     if (records.every(isExtensionMutation)) return;
     pageVersion += 1;
     galleryCache = null;
+    scheduleGalleryRefresh();
   });
   observer.observe(root, {
     subtree: true,
@@ -137,6 +140,17 @@ async function completeGalleryCollection(
   } catch {
     // 初期表示後の収集失敗では、表示中の一覧を維持する。
   }
+}
+
+function scheduleGalleryRefresh(): void {
+  if (!viewer.open) return;
+  if (galleryRefreshTimer !== undefined) window.clearTimeout(galleryRefreshTimer);
+  galleryRefreshTimer = window.setTimeout(() => {
+    galleryRefreshTimer = undefined;
+    if (viewer.open) {
+      void completeGalleryCollection(settingsVersion, pageVersion);
+    }
+  }, GALLERY_REFRESH_DEBOUNCE_MS);
 }
 
 async function openGallery(sourceUrl?: string): Promise<void> {
@@ -254,6 +268,7 @@ async function initialize(): Promise<void> {
         settings = nextSettings;
         settingsVersion += 1;
         galleryCache = null;
+        scheduleGalleryRefresh();
         if (!settings.showHoverButton) viewer.scheduleHoverHide();
       });
     }
