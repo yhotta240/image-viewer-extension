@@ -213,7 +213,7 @@ export class ImageViewer {
     return this.isOpen;
   }
 
-  async openViewer(images: GalleryImage[], initialIndex = 0): Promise<void> {
+  openViewer(images: GalleryImage[], initialIndex = 0): void {
     if (images.length === 0) return;
     const wasOpen = this.isOpen;
     if (!wasOpen) {
