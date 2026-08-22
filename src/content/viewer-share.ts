@@ -103,6 +103,8 @@ export class ViewerShareMenu {
     const isImageTarget = this.target === "image";
     this.imageTarget.setAttribute("aria-pressed", String(isImageTarget));
     this.pageTarget.setAttribute("aria-pressed", String(!isImageTarget));
+    this.imageTarget.setAttribute("aria-checked", String(isImageTarget));
+    this.pageTarget.setAttribute("aria-checked", String(!isImageTarget));
 
     const copyLabel = isImageTarget ? "画像URLをコピー" : "ページURLをコピー";
     this.copy.textContent = copyLabel;
