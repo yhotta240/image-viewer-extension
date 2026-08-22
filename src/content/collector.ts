@@ -4,6 +4,7 @@ export type GalleryImage = {
   url: string;
   fallbackUrl?: string;
   source: "img" | "background";
+  alt?: string;
 };
 
 const MIN_RENDERED_SIZE = 64;
@@ -189,6 +190,7 @@ export async function collectGalleryImages(settings: ImageViewerSettings): Promi
       url: candidate.url,
       fallbackUrl: candidate.fallbackUrl,
       source: candidate.source,
+      alt: candidate.element instanceof HTMLImageElement ? candidate.element.alt : undefined,
     });
   }
   return accepted;

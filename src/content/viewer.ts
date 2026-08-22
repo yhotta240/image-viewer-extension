@@ -10,6 +10,7 @@ import {
 } from "lucide";
 import type { GalleryImage } from "./collector";
 import viewerStyle from "./viewer.css";
+import { ImageInfoPanel } from "./viewer-info";
 
 const HOST_ID = "image-viewer-extension-root";
 const HOVER_HOST_ID = "image-viewer-extension-hover-root";
@@ -27,6 +28,7 @@ type ViewerElements = {
   prev: HTMLButtonElement;
   next: HTMLButtonElement;
   fullscreen: HTMLButtonElement;
+  info: ImageInfoPanel;
   close: HTMLButtonElement;
   hover: HTMLButtonElement;
 };
@@ -130,11 +132,12 @@ export class ImageViewer {
     topbar.className = "topbar";
     const fullscreen = makeButton("", "fullscreen", "全画面表示");
     appendLucideIcon(fullscreen, Maximize2, 18);
+    const info = new ImageInfoPanel();
     const close = makeButton("", "close", "閉じる");
     appendLucideIcon(close, X, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
-    topbar.append(fullscreen, close, counter);
+    topbar.append(fullscreen, info.element, close, counter);
 
     const stage = document.createElement("div");
     stage.className = "stage";
@@ -171,6 +174,7 @@ export class ImageViewer {
       prev,
       next,
       fullscreen,
+      info,
       close,
       hover,
     };
@@ -323,6 +327,7 @@ export class ImageViewer {
         return;
       }
       this.elements.error.textContent = "この画像を表示できません";
+      this.updateInfo();
     });
     image.addEventListener("click", () => {
       if (this.didDrag) {
@@ -350,7 +355,12 @@ export class ImageViewer {
       { passive: false },
     );
     viewer.addEventListener("pointerdown", (event) => {
-      if (event.target instanceof Element && event.target.closest("button")) return;
+      if (
+        event.target instanceof Element &&
+        (event.target.closest("button") || event.target.closest(".info-panel"))
+      ) {
+        return;
+      }
       const captureTarget = event.target === image ? image : viewer;
       captureTarget.setPointerCapture(event.pointerId);
       this.didDrag = false;
@@ -499,6 +509,12 @@ export class ImageViewer {
   private applyTransform(): void {
     this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) scale(${this.zoom})`;
     this.elements.image.classList.toggle("zoomed", this.zoom > 1);
+    this.updateInfo();
+  }
+
+  private updateInfo(): void {
+    const current = this.images[this.index];
+    if (current) this.elements.info.update(current, this.elements.image, this.zoom);
   }
 }
 
