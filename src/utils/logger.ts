@@ -13,6 +13,16 @@ export interface LogEntry {
 export const LOG_STORAGE_KEY = "app_logs";
 const MAX_LOG_SIZE = 200;
 
+function sanitizeDetail(detail: string): string {
+  try {
+    const url = new URL(detail);
+    if (url.protocol === "data:" || url.protocol === "blob:") return `${url.protocol}`;
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return detail;
+  }
+}
+
 /**
  * 現在日時を "YYYY-MM-DD HH:mm:ss" 形式で返す
  */
@@ -67,9 +77,10 @@ export const logInfo = (message: string, source: LogSource, hidden?: boolean) =>
   addLog(message, "info", source, undefined, hidden);
 
 export const logWarn = (message: string, source: LogSource, detail?: string, hidden?: boolean) =>
-  addLog(message, "warn", source, detail, hidden);
+  addLog(message, "warn", source, detail ? sanitizeDetail(detail) : undefined, hidden);
 
 export const logError = (message: string, source: LogSource, error?: unknown, hidden?: boolean) => {
-  const detail = error instanceof Error ? error.message : error ? String(error) : undefined;
+  const rawDetail = error instanceof Error ? error.message : error ? String(error) : undefined;
+  const detail = rawDetail ? sanitizeDetail(rawDetail) : undefined;
   return addLog(message, "error", source, detail, hidden);
 };
