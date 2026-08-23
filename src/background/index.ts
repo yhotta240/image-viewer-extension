@@ -56,12 +56,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 chrome.runtime.onInstalled.addListener((details) => {
   createContextMenu();
   if (details.reason === "install") {
-    void logInfo("Image Viewerがインストールされました", "background", true);
+    void logInfo("Image Viewerがインストールされました", "background");
   } else if (details.reason === "update") {
     void logInfo(
       `拡張機能がアップデートされました (v${details.previousVersion ?? "?"} → v${chrome.runtime.getManifest().version})`,
       "background",
-      true,
     );
   }
 });
