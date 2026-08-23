@@ -124,13 +124,18 @@ export class PopupManager {
       const input = event.target as HTMLInputElement;
       const value = Math.min(2000, Math.max(64, Number(input.value) || 200));
       input.value = String(value);
-      await this.updateSettings({ minImageSize: value }, "最小画像サイズの保存に失敗しました");
+      await this.updateSettings(
+        { minImageSize: value },
+        "最小画像サイズを保存しました",
+        "最小画像サイズの保存に失敗しました",
+      );
     });
 
     this.includeBackgroundImagesElement?.addEventListener("change", async (event) => {
       const enabled = (event.target as HTMLInputElement).checked;
       await this.updateSettings(
         { includeBackgroundImages: enabled },
+        `CSS背景画像を${enabled ? "収集" : "除外"}する設定を保存しました`,
         "CSS背景画像設定の保存に失敗しました",
       );
     });
@@ -139,6 +144,7 @@ export class PopupManager {
       const enabled = (event.target as HTMLInputElement).checked;
       await this.updateSettings(
         { showHoverButton: enabled },
+        `ホバー起動ボタンを${enabled ? "表示" : "非表示"}にしました`,
         "ホバー起動ボタン設定の保存に失敗しました",
       );
     });
@@ -147,14 +153,26 @@ export class PopupManager {
     setupThemeMenu(async (value: Theme) => {
       try {
         applyTheme(value);
+        await this.showLog(`テーマを ${value} に変更しました`);
       } catch (e) {
         await this.showLog("テーマ設定の保存に失敗しました", "error", e);
       }
     });
 
     // シェアメニューの初期化
-    initShareMenu(async (_platform: SharePlatform, success: boolean) => {
-      if (!success) {
+    initShareMenu(async (platform: SharePlatform, success: boolean) => {
+      const platformNames: Record<SharePlatform, string> = {
+        twitter: "X (Twitter)",
+        facebook: "Facebook",
+        copy: "クリップボード",
+      };
+      if (success) {
+        if (platform === "copy") {
+          await this.showLog("URLをコピーしました");
+        } else {
+          await this.showLog(`${platformNames[platform]}でシェアしました`);
+        }
+      } else {
         await this.showLog("シェアに失敗しました", "error");
       }
     });
@@ -174,10 +192,15 @@ export class PopupManager {
     // });
   }
 
-  private async updateSettings(patch: Partial<Settings>, failedMessage?: string): Promise<void> {
+  private async updateSettings(
+    patch: Partial<Settings>,
+    successMessage?: string,
+    failedMessage?: string,
+  ): Promise<void> {
     try {
       this.settings = { ...this.settings, ...patch };
       await setSettings(this.settings);
+      if (successMessage) await this.showLog(successMessage);
     } catch (err) {
       console.error("failed to save settings", err);
       await this.showLog(failedMessage || "設定の保存に失敗しました", "error", err);
