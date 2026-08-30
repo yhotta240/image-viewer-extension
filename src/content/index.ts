@@ -2,11 +2,11 @@ import { DEFAULT_SETTINGS, type ImageViewerSettings } from "../settings";
 import { logError } from "../utils/logger";
 import { getSettings, isEnabled } from "../utils/storage";
 import {
-  collectGalleryImages,
-  collectLoadedGalleryImages,
+  collectLoadedViewerImages,
+  collectViewerImages,
   findImageIndex,
-  type GalleryImage,
   isPotentialImageElement,
+  type ViewerImage,
 } from "./collector";
 import { createImageViewer, type ImageViewer } from "./viewer";
 
@@ -18,26 +18,26 @@ type OpenViewerMessage = {
 let settings: ImageViewerSettings = DEFAULT_SETTINGS;
 let enabled = true;
 const viewer: ImageViewer = createImageViewer();
-type GalleryCache = {
+type ImageCache = {
   settingsVersion: number;
   pageVersion: number;
-  images: GalleryImage[];
+  images: ViewerImage[];
 };
 
-type GalleryCollection = {
+type ImageCollection = {
   settingsVersion: number;
   pageVersion: number;
-  promise: Promise<GalleryImage[]>;
+  promise: Promise<ViewerImage[]>;
 };
 
-let galleryCache: GalleryCache | null = null;
-let galleryCollection: GalleryCollection | null = null;
+let imageCache: ImageCache | null = null;
+let imageCollection: ImageCollection | null = null;
 let settingsVersion = 0;
 let pageVersion = 0;
-let galleryRefreshTimer: number | undefined;
+let imageRefreshTimer: number | undefined;
 
 const extensionHostSelector = "#image-viewer-extension-root, #image-viewer-extension-hover-root";
-const GALLERY_REFRESH_DEBOUNCE_MS = 300;
+const IMAGE_REFRESH_DEBOUNCE_MS = 300;
 
 function isExtensionMutation(record: MutationRecord): boolean {
   const target = record.target instanceof Element ? record.target : record.target.parentElement;
@@ -53,15 +53,15 @@ function isExtensionMutation(record: MutationRecord): boolean {
   );
 }
 
-function setupGalleryInvalidation(): void {
+function setupImageInvalidation(): void {
   const root = document.documentElement;
   if (!root) return;
 
   const observer = new MutationObserver((records) => {
     if (records.every(isExtensionMutation)) return;
     pageVersion += 1;
-    galleryCache = null;
-    scheduleGalleryRefresh();
+    imageCache = null;
+    scheduleImageRefresh();
   });
   observer.observe(root, {
     subtree: true,
@@ -80,25 +80,25 @@ function setupGalleryInvalidation(): void {
   });
 }
 
-function collectFullGallery(): Promise<GalleryImage[]> {
+function collectAllImages(): Promise<ViewerImage[]> {
   const requestedSettingsVersion = settingsVersion;
   const requestedPageVersion = pageVersion;
   if (
-    galleryCache?.settingsVersion === requestedSettingsVersion &&
-    galleryCache.pageVersion === requestedPageVersion
+    imageCache?.settingsVersion === requestedSettingsVersion &&
+    imageCache.pageVersion === requestedPageVersion
   ) {
-    return Promise.resolve(galleryCache.images);
+    return Promise.resolve(imageCache.images);
   }
   if (
-    galleryCollection?.settingsVersion === requestedSettingsVersion &&
-    galleryCollection.pageVersion === requestedPageVersion
+    imageCollection?.settingsVersion === requestedSettingsVersion &&
+    imageCollection.pageVersion === requestedPageVersion
   ) {
-    return galleryCollection.promise;
+    return imageCollection.promise;
   }
 
-  const pending = collectGalleryImages(settings).then((images) => {
+  const pending = collectViewerImages(settings).then((images) => {
     if (requestedSettingsVersion === settingsVersion && requestedPageVersion === pageVersion) {
-      galleryCache = {
+      imageCache = {
         settingsVersion: requestedSettingsVersion,
         pageVersion: requestedPageVersion,
         images,
@@ -106,29 +106,29 @@ function collectFullGallery(): Promise<GalleryImage[]> {
     }
     return images;
   });
-  const collection: GalleryCollection = {
+  const collection: ImageCollection = {
     settingsVersion: requestedSettingsVersion,
     pageVersion: requestedPageVersion,
     promise: pending,
   };
-  galleryCollection = collection;
+  imageCollection = collection;
   void pending.then(
     () => {
-      if (galleryCollection === collection) galleryCollection = null;
+      if (imageCollection === collection) imageCollection = null;
     },
     () => {
-      if (galleryCollection === collection) galleryCollection = null;
+      if (imageCollection === collection) imageCollection = null;
     },
   );
   return pending;
 }
 
-async function completeGalleryCollection(
+async function completeImageCollection(
   expectedSettingsVersion: number,
   expectedPageVersion: number,
 ): Promise<void> {
   try {
-    const images = await collectFullGallery();
+    const images = await collectAllImages();
     if (
       expectedSettingsVersion === settingsVersion &&
       expectedPageVersion === pageVersion &&
@@ -143,35 +143,35 @@ async function completeGalleryCollection(
   }
 }
 
-function scheduleGalleryRefresh(): void {
+function scheduleImageRefresh(): void {
   if (!viewer.open) return;
-  if (galleryRefreshTimer !== undefined) window.clearTimeout(galleryRefreshTimer);
-  galleryRefreshTimer = window.setTimeout(() => {
-    galleryRefreshTimer = undefined;
+  if (imageRefreshTimer !== undefined) window.clearTimeout(imageRefreshTimer);
+  imageRefreshTimer = window.setTimeout(() => {
+    imageRefreshTimer = undefined;
     if (viewer.open) {
-      void completeGalleryCollection(settingsVersion, pageVersion);
+      void completeImageCollection(settingsVersion, pageVersion);
     }
-  }, GALLERY_REFRESH_DEBOUNCE_MS);
+  }, IMAGE_REFRESH_DEBOUNCE_MS);
 }
 
-async function openGallery(sourceUrl?: string): Promise<void> {
+async function openViewer(sourceUrl?: string): Promise<void> {
   if (!enabled) return;
 
-  const quickImages = collectLoadedGalleryImages(settings);
+  const quickImages = collectLoadedViewerImages(settings);
   if (quickImages.length > 0) {
     viewer.openViewer(quickImages, findImageIndex(quickImages, sourceUrl));
     const expectedSettingsVersion = settingsVersion;
     const expectedPageVersion = pageVersion;
     window.setTimeout(
-      () => void completeGalleryCollection(expectedSettingsVersion, expectedPageVersion),
+      () => void completeImageCollection(expectedSettingsVersion, expectedPageVersion),
       0,
     );
     return;
   }
 
-  let images: GalleryImage[];
+  let images: ViewerImage[];
   try {
-    images = await collectFullGallery();
+    images = await collectAllImages();
   } catch (error) {
     void logError("画像の収集に失敗しました", "content", error);
     viewer.showToast("画像を収集できませんでした");
@@ -201,7 +201,7 @@ function setupHoverActivation(): void {
     ) {
       return;
     }
-    viewer.showHoverButton(image, () => void openGallery(image.currentSrc || image.src));
+    viewer.showHoverButton(image, () => void openViewer(image.currentSrc || image.src));
   };
 
   document.addEventListener(
@@ -246,7 +246,7 @@ function setupAltClickActivation(): void {
       if (!image || !isPotentialImageElement(image, settings.minImageSize)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      void openGallery(image.currentSrc || image.src);
+      void openViewer(image.currentSrc || image.src);
     },
     true,
   );
@@ -254,14 +254,14 @@ function setupAltClickActivation(): void {
 
 function setupMessages(): void {
   chrome.runtime.onMessage.addListener((message: OpenViewerMessage) => {
-    if (message?.type === "OPEN_VIEWER") void openGallery(message.sourceUrl);
+    if (message?.type === "OPEN_VIEWER") void openViewer(message.sourceUrl);
   });
 }
 
 async function initialize(): Promise<void> {
   settings = await getSettings();
   enabled = await isEnabled();
-  setupGalleryInvalidation();
+  setupImageInvalidation();
   setupHoverActivation();
   setupAltClickActivation();
   setupMessages();
@@ -273,8 +273,8 @@ async function initialize(): Promise<void> {
       void getSettings().then((nextSettings) => {
         settings = nextSettings;
         settingsVersion += 1;
-        galleryCache = null;
-        scheduleGalleryRefresh();
+        imageCache = null;
+        scheduleImageRefresh();
         if (!settings.showHoverButton) viewer.scheduleHoverHide();
       });
     }

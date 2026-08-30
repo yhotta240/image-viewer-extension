@@ -1,5 +1,5 @@
 import { createElement as createLucideElement, Info } from "lucide";
-import type { GalleryImage } from "./collector";
+import type { ViewerImage } from "./collector";
 
 type InfoRow = {
   label: string;
@@ -130,7 +130,7 @@ export class ImageInfoPanel {
     this.element.append(this.button, panel);
   }
 
-  update(image: GalleryImage, displayedImage: HTMLImageElement, zoom: number): void {
+  update(image: ViewerImage, displayedImage: HTMLImageElement, zoom: number): void {
     const displayedUrl = displayedImage.currentSrc || displayedImage.src || image.url;
     const rows: InfoRow[] = [
       { label: "ファイル名", value: getFileName(displayedUrl) },

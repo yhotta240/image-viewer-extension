@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Image Viewer",
+  "name": "Image Viewer - ページ内画像のビューア表示・保存",
   "short_name": "Image Viewer",
   "version": "0.0.1",
-  "description": "現在のページにある画像をギャラリーとして閲覧します",
+  "description": "現在のページにある画像をビューアとして閲覧します",
   "icons": {
     "48": "icons/icon.png"
   },

@@ -1,5 +1,5 @@
 import { zipSync } from "fflate";
-import type { GalleryImage } from "./collector";
+import type { ViewerImage } from "./collector";
 import {
   getDownloadFilename,
   getUniqueFilename,
@@ -40,7 +40,7 @@ async function fetchRemoteBlob(url: string): Promise<FetchedImage | null> {
   }
 }
 
-async function fetchImage(image: GalleryImage): Promise<FetchedImage | null> {
+async function fetchImage(image: ViewerImage): Promise<FetchedImage | null> {
   for (const url of [image.url, image.fallbackUrl]) {
     if (!url) continue;
     if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -56,7 +56,7 @@ async function fetchImage(image: GalleryImage): Promise<FetchedImage | null> {
 }
 
 export async function downloadCurrentImage(
-  image: GalleryImage,
+  image: ViewerImage,
   displayedUrl?: string,
 ): Promise<CurrentDownloadResult> {
   const url = displayedUrl || image.url;
@@ -80,7 +80,7 @@ export async function downloadCurrentImage(
   }
 }
 
-export async function downloadGalleryZip(images: GalleryImage[]): Promise<ZipDownloadResult> {
+export async function downloadImagesZip(images: ViewerImage[]): Promise<ZipDownloadResult> {
   const entries: Record<string, Uint8Array> = {};
   const usedFilenames = new Set<string>();
   let failed = 0;
