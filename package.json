@@ -1,6 +1,6 @@
 {
   "name": "image-viewer-extension",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "現在のページにある画像をビューアで閲覧します",
   "main": "index.js",
   "scripts": {

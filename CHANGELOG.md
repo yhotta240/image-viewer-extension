@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2026-08-30
+
+### changed
+
+- 「ギャラリー」表記を「ビューア」に統一
+
+### fixed
+
+- 設定の保存やURLの共有などの成功ログを表示
+
 ## [0.1.0] - 2026-08-23
 
 ### added
