@@ -61,4 +61,4 @@ All notable changes to this project will be documented in this file.
 
 ### added
 
-- 画像ギャラリー機能を追加
+- 画像ビューア機能を追加

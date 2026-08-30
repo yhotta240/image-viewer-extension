@@ -1,6 +1,6 @@
 import type { ImageViewerSettings } from "../settings";
 
-export type GalleryImage = {
+export type ViewerImage = {
   url: string;
   fallbackUrl?: string;
   source: "img" | "background";
@@ -12,7 +12,7 @@ const PROBE_TIMEOUT_MS = 1500;
 const IMAGE_EXTENSION_PATTERN = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)(?:$|[?#])/i;
 const IMAGE_QUERY_PATTERN = /(?:format|fm|type)=(?:avif|bmp|gif|jpe?g|png|svg|webp)(?:&|$)/i;
 
-type RawCandidate = GalleryImage & { element?: HTMLElement };
+type RawCandidate = ViewerImage & { element?: HTMLElement };
 type ImageSize = { width: number; height: number } | null;
 
 function toSafeUrl(value: string | null | undefined): string | null {
@@ -146,8 +146,8 @@ function isLargeEnough(size: ImageSize, minImageSize: number): boolean {
   return Boolean(size && size.width >= minImageSize && size.height >= minImageSize);
 }
 
-function toGalleryImages(candidates: RawCandidate[]): GalleryImage[] {
-  const accepted: GalleryImage[] = [];
+function toViewerImages(candidates: RawCandidate[]): ViewerImage[] {
+  const accepted: ViewerImage[] = [];
   const seen = new Set<string>();
   for (const candidate of candidates) {
     const key = `${normalizeUrl(candidate.url)}|${normalizeUrl(candidate.fallbackUrl ?? "")}`;
@@ -163,14 +163,14 @@ function toGalleryImages(candidates: RawCandidate[]): GalleryImage[] {
   return accepted;
 }
 
-export function collectLoadedGalleryImages(settings: ImageViewerSettings): GalleryImage[] {
+export function collectLoadedViewerImages(settings: ImageViewerSettings): ViewerImage[] {
   const candidates = collectImageCandidates().filter((candidate) =>
     isLargeEnough(getElementSize(candidate), settings.minImageSize),
   );
-  return toGalleryImages(candidates);
+  return toViewerImages(candidates);
 }
 
-export function findImageIndex(images: GalleryImage[], sourceUrl?: string): number {
+export function findImageIndex(images: ViewerImage[], sourceUrl?: string): number {
   if (!sourceUrl) return 0;
   const normalized = normalizeUrl(sourceUrl);
   const index = images.findIndex(
@@ -181,7 +181,7 @@ export function findImageIndex(images: GalleryImage[], sourceUrl?: string): numb
   return index >= 0 ? index : 0;
 }
 
-export async function collectGalleryImages(settings: ImageViewerSettings): Promise<GalleryImage[]> {
+export async function collectViewerImages(settings: ImageViewerSettings): Promise<ViewerImage[]> {
   const rawCandidates = collectRawCandidates(settings);
   const probeCache = new Map<string, Promise<ImageSize>>();
   const getSize = (candidate: RawCandidate, url: string): Promise<ImageSize> => {
@@ -212,7 +212,7 @@ export async function collectGalleryImages(settings: ImageViewerSettings): Promi
       return sizes.some((size) => isLargeEnough(size, settings.minImageSize)) ? candidate : null;
     }),
   );
-  return toGalleryImages(
+  return toViewerImages(
     evaluated.filter((candidate): candidate is RawCandidate => candidate !== null),
   );
 }

@@ -14,8 +14,8 @@ import {
 } from "lucide";
 import { logError, logWarn } from "../utils/logger";
 import { getStorage, setStorage } from "../utils/storage";
-import { findImageIndex, type GalleryImage } from "./collector";
-import { downloadCurrentImage, downloadGalleryZip } from "./download";
+import { findImageIndex, type ViewerImage } from "./collector";
+import { downloadCurrentImage, downloadImagesZip } from "./download";
 import viewerStyle from "./viewer.css";
 import { ImageInfoPanel } from "./viewer-info";
 import { ViewerShareMenu } from "./viewer-share";
@@ -96,7 +96,7 @@ export class ImageViewer {
   private readonly host: HTMLDivElement;
   private readonly hoverHost: HTMLDivElement;
   private readonly elements: ViewerElements;
-  private images: GalleryImage[] = [];
+  private images: ViewerImage[] = [];
   private index = 0;
   private zoom = 1;
   private fitMode = false;
@@ -225,7 +225,7 @@ export class ImageViewer {
     return this.isOpen;
   }
 
-  openViewer(images: GalleryImage[], initialIndex = 0): void {
+  openViewer(images: ViewerImage[], initialIndex = 0): void {
     if (images.length === 0) return;
     const wasOpen = this.isOpen;
     if (!wasOpen) {
@@ -255,7 +255,7 @@ export class ImageViewer {
     this.elements.close.focus({ preventScroll: true });
   }
 
-  replaceImages(images: GalleryImage[]): void {
+  replaceImages(images: ViewerImage[]): void {
     if (!this.isOpen || images.length === 0) return;
     const currentUrl = this.elements.image.currentSrc || this.elements.image.src;
     this.images = images;
@@ -551,7 +551,7 @@ export class ImageViewer {
 
     zip.disabled = true;
     try {
-      const result = await downloadGalleryZip(this.images);
+      const result = await downloadImagesZip(this.images);
       if (!result.ok) {
         this.showToast("ZIPを作成できませんでした");
         void logError("画像ZIPの作成に失敗しました", "content");

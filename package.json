@@ -1,7 +1,7 @@
 {
   "name": "image-viewer-extension",
   "version": "0.1.0",
-  "description": "現在のページにある画像をギャラリーとして閲覧します",
+  "description": "現在のページにある画像をビューアで閲覧します",
   "main": "index.js",
   "scripts": {
     "check": "biome check src",
