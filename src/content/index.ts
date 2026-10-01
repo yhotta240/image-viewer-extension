@@ -3,10 +3,9 @@ import { logError } from "../utils/logger";
 import { getSettings, isEnabled } from "../utils/storage";
 import {
   collectLoadedViewerImages,
-  collectViewerImages,
   findImageIndex,
   isPotentialImageElement,
-  type ViewerImage,
+  observeViewerImages,
 } from "./collector";
 import { createImageViewer, type ImageViewer } from "./viewer";
 
@@ -17,171 +16,46 @@ type OpenViewerMessage = {
 
 let settings: ImageViewerSettings = DEFAULT_SETTINGS;
 let enabled = true;
-const viewer: ImageViewer = createImageViewer();
-type ImageCache = {
-  settingsVersion: number;
-  pageVersion: number;
-  images: ViewerImage[];
-};
+let stopImageObservation: (() => void) | undefined;
+const viewer: ImageViewer = createImageViewer(() => {
+  stopImageObservation?.();
+  stopImageObservation = undefined;
+});
 
-type ImageCollection = {
-  settingsVersion: number;
-  pageVersion: number;
-  promise: Promise<ViewerImage[]>;
-};
-
-let imageCache: ImageCache | null = null;
-let imageCollection: ImageCollection | null = null;
-let settingsVersion = 0;
-let pageVersion = 0;
-let imageRefreshTimer: number | undefined;
-
-const extensionHostSelector = "#image-viewer-extension-root, #image-viewer-extension-hover-root";
-const IMAGE_REFRESH_DEBOUNCE_MS = 300;
-
-function isExtensionMutation(record: MutationRecord): boolean {
-  const target = record.target instanceof Element ? record.target : record.target.parentElement;
-  if (target?.closest(extensionHostSelector)) return true;
-  if (record.type !== "childList") return false;
-
-  const changedNodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
-  return (
-    changedNodes.length > 0 &&
-    changedNodes.every(
-      (node) => node instanceof Element && node.closest(extensionHostSelector) === node,
-    )
-  );
-}
-
-function setupImageInvalidation(): void {
-  const root = document.documentElement;
-  if (!root) return;
-
-  const observer = new MutationObserver((records) => {
-    if (records.every(isExtensionMutation)) return;
-    pageVersion += 1;
-    imageCache = null;
-    scheduleImageRefresh();
-  });
-  observer.observe(root, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: [
-      "class",
-      "style",
-      "src",
-      "srcset",
-      "sizes",
-      "href",
-      "data-src",
-      "data-srcset",
-    ],
-  });
-}
-
-function collectAllImages(): Promise<ViewerImage[]> {
-  const requestedSettingsVersion = settingsVersion;
-  const requestedPageVersion = pageVersion;
-  if (
-    imageCache?.settingsVersion === requestedSettingsVersion &&
-    imageCache.pageVersion === requestedPageVersion
-  ) {
-    return Promise.resolve(imageCache.images);
-  }
-  if (
-    imageCollection?.settingsVersion === requestedSettingsVersion &&
-    imageCollection.pageVersion === requestedPageVersion
-  ) {
-    return imageCollection.promise;
-  }
-
-  const pending = collectViewerImages(settings).then((images) => {
-    if (requestedSettingsVersion === settingsVersion && requestedPageVersion === pageVersion) {
-      imageCache = {
-        settingsVersion: requestedSettingsVersion,
-        pageVersion: requestedPageVersion,
-        images,
-      };
-    }
-    return images;
-  });
-  const collection: ImageCollection = {
-    settingsVersion: requestedSettingsVersion,
-    pageVersion: requestedPageVersion,
-    promise: pending,
-  };
-  imageCollection = collection;
-  void pending.then(
-    () => {
-      if (imageCollection === collection) imageCollection = null;
-    },
-    () => {
-      if (imageCollection === collection) imageCollection = null;
-    },
-  );
-  return pending;
-}
-
-async function completeImageCollection(
-  expectedSettingsVersion: number,
-  expectedPageVersion: number,
-): Promise<void> {
+function startImageObservation(sourceUrl?: string, selectInitialImage = false): void {
+  stopImageObservation?.();
+  stopImageObservation = undefined;
   try {
-    const images = await collectAllImages();
-    if (
-      expectedSettingsVersion === settingsVersion &&
-      expectedPageVersion === pageVersion &&
-      viewer.open &&
-      images.length > 0
-    ) {
-      viewer.replaceImages(images);
-    }
+    stopImageObservation = observeViewerImages(
+      settings,
+      (images, loading) => {
+        if (!viewer.open) return;
+        if (selectInitialImage && images.length > 0) {
+          selectInitialImage = false;
+          viewer.openViewer(images, findImageIndex(images, sourceUrl));
+        } else {
+          viewer.replaceImages(images, loading);
+        }
+      },
+      (error) => void logError("表示中の画像収集に失敗しました", "content", error),
+    );
   } catch (error) {
-    // 初期表示後の収集失敗では、表示中の一覧を維持する。
     void logError("表示中の画像収集に失敗しました", "content", error);
   }
 }
 
-function scheduleImageRefresh(): void {
-  if (!viewer.open) return;
-  if (imageRefreshTimer !== undefined) window.clearTimeout(imageRefreshTimer);
-  imageRefreshTimer = window.setTimeout(() => {
-    imageRefreshTimer = undefined;
-    if (viewer.open) {
-      void completeImageCollection(settingsVersion, pageVersion);
-    }
-  }, IMAGE_REFRESH_DEBOUNCE_MS);
-}
-
-async function openViewer(sourceUrl?: string): Promise<void> {
+function openViewer(sourceUrl?: string): void {
   if (!enabled) return;
-
-  const quickImages = collectLoadedViewerImages(settings);
-  if (quickImages.length > 0) {
-    viewer.openViewer(quickImages, findImageIndex(quickImages, sourceUrl));
-    const expectedSettingsVersion = settingsVersion;
-    const expectedPageVersion = pageVersion;
-    window.setTimeout(
-      () => void completeImageCollection(expectedSettingsVersion, expectedPageVersion),
-      0,
-    );
-    return;
-  }
-
-  let images: ViewerImage[];
+  stopImageObservation?.();
+  stopImageObservation = undefined;
   try {
-    images = await collectAllImages();
+    const images = collectLoadedViewerImages(settings);
+    viewer.openViewer(images, findImageIndex(images, sourceUrl));
+    startImageObservation(sourceUrl, images.length === 0);
   } catch (error) {
     void logError("画像の収集に失敗しました", "content", error);
     viewer.showToast("画像を収集できませんでした");
-    return;
   }
-  if (images.length === 0) {
-    viewer.showToast("表示できる画像がありません");
-    return;
-  }
-  viewer.openViewer(images, findImageIndex(images, sourceUrl));
 }
 
 function getImageTarget(target: EventTarget | null): HTMLImageElement | null {
@@ -201,7 +75,7 @@ function setupHoverActivation(): void {
     ) {
       return;
     }
-    viewer.showHoverButton(image, () => void openViewer(image.currentSrc || image.src));
+    viewer.showHoverButton(image, () => openViewer(image.currentSrc || image.src));
   };
 
   document.addEventListener(
@@ -246,7 +120,7 @@ function setupAltClickActivation(): void {
       if (!image || !isPotentialImageElement(image, settings.minImageSize)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      void openViewer(image.currentSrc || image.src);
+      openViewer(image.currentSrc || image.src);
     },
     true,
   );
@@ -254,31 +128,37 @@ function setupAltClickActivation(): void {
 
 function setupMessages(): void {
   chrome.runtime.onMessage.addListener((message: OpenViewerMessage) => {
-    if (message?.type === "OPEN_VIEWER") void openViewer(message.sourceUrl);
+    if (message?.type === "OPEN_VIEWER") openViewer(message.sourceUrl);
   });
 }
 
 async function initialize(): Promise<void> {
   settings = await getSettings();
   enabled = await isEnabled();
-  setupImageInvalidation();
   setupHoverActivation();
   setupAltClickActivation();
   setupMessages();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (changes.enabled) enabled = changes.enabled.newValue !== false;
+    if (changes.enabled) {
+      enabled = changes.enabled.newValue !== false;
+      if (!enabled) viewer.closeViewer();
+    }
     if (changes.settings) {
-      void getSettings().then((nextSettings) => {
-        settings = nextSettings;
-        settingsVersion += 1;
-        imageCache = null;
-        scheduleImageRefresh();
-        if (!settings.showHoverButton) viewer.scheduleHoverHide();
-      });
+      void updateSettings();
     }
   });
+}
+
+async function updateSettings(): Promise<void> {
+  try {
+    settings = await getSettings();
+    if (viewer.open) startImageObservation();
+    if (!settings.showHoverButton) viewer.scheduleHoverHide();
+  } catch (error) {
+    void logError("画像表示設定の更新に失敗しました", "content", error);
+  }
 }
 
 void initialize().catch((error) => {
