@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-10-01
+
+### fixed
+
+- ビューアを開いたまま，読み込みが遅い画像や後から追加された画像も表示されるように修正
+
 ## [0.1.1] - 2026-08-30
 
 ### changed
