@@ -8,7 +8,8 @@ export type ViewerImage = {
 };
 
 const MIN_RENDERED_SIZE = 64;
-const PROBE_TIMEOUT_MS = 1500;
+const IMAGE_REFRESH_DELAY_MS = 300;
+const EXTENSION_HOST_SELECTOR = "#image-viewer-extension-root, #image-viewer-extension-hover-root";
 const IMAGE_EXTENSION_PATTERN = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)(?:$|[?#])/i;
 const IMAGE_QUERY_PATTERN = /(?:format|fm|type)=(?:avif|bmp|gif|jpe?g|png|svg|webp)(?:&|$)/i;
 
@@ -103,25 +104,6 @@ function collectRawCandidates(settings: ImageViewerSettings): RawCandidate[] {
   return candidates;
 }
 
-function probeImage(url: string): Promise<ImageSize> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    let settled = false;
-    const finish = (value: ImageSize) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      image.onload = null;
-      image.onerror = null;
-      resolve(value);
-    };
-    const timer = window.setTimeout(() => finish(null), PROBE_TIMEOUT_MS);
-    image.onload = () => finish({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = () => finish(null);
-    image.src = url;
-  });
-}
-
 function getElementSize(candidate: RawCandidate): ImageSize {
   if (candidate.element instanceof HTMLImageElement && candidate.element.currentSrc) {
     if (candidate.element.naturalWidth === 0 || candidate.element.naturalHeight === 0) return null;
@@ -181,10 +163,36 @@ export function findImageIndex(images: ViewerImage[], sourceUrl?: string): numbe
   return index >= 0 ? index : 0;
 }
 
-export async function collectViewerImages(settings: ImageViewerSettings): Promise<ViewerImage[]> {
-  const rawCandidates = collectRawCandidates(settings);
-  const probeCache = new Map<string, Promise<ImageSize>>();
-  const getSize = (candidate: RawCandidate, url: string): Promise<ImageSize> => {
+type ImageProbe = {
+  image: HTMLImageElement;
+  size: ImageSize;
+  settled: boolean;
+};
+
+function isExtensionMutation(record: MutationRecord): boolean {
+  const target = record.target instanceof Element ? record.target : record.target.parentElement;
+  if (target?.closest(EXTENSION_HOST_SELECTOR)) return true;
+  if (record.type !== "childList") return false;
+  const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
+  return (
+    nodes.length > 0 &&
+    nodes.every((node) => node instanceof Element && node.closest(EXTENSION_HOST_SELECTOR) === node)
+  );
+}
+
+export function observeViewerImages(
+  settings: ImageViewerSettings,
+  onUpdate: (images: ViewerImage[], loading: boolean) => void,
+  onError: (error: unknown) => void,
+): () => void {
+  const probes = new Map<string, ImageProbe>();
+  let candidates: RawCandidate[] = [];
+  let previousImages: ViewerImage[] | undefined;
+  let previousLoading = false;
+  let refreshTimer: number | undefined;
+  let disconnected = false;
+
+  const getSize = (candidate: RawCandidate, url: string): ImageSize => {
     const elementSize = getElementSize(candidate);
     if (
       elementSize &&
@@ -193,26 +201,133 @@ export async function collectViewerImages(settings: ImageViewerSettings): Promis
           candidate.element instanceof HTMLImageElement ? candidate.element.currentSrc : "",
         )
     ) {
-      return Promise.resolve(elementSize);
+      return elementSize;
     }
-    const key = normalizeUrl(url);
-    const cached = probeCache.get(key);
-    if (cached) return cached;
-    const pending = probeImage(url);
-    probeCache.set(key, pending);
-    return pending;
+    return probes.get(normalizeUrl(url))?.size ?? null;
   };
 
-  const evaluated = await Promise.all(
-    rawCandidates.map(async (candidate) => {
-      const sizes = await Promise.all([
-        getSize(candidate, candidate.url),
-        candidate.fallbackUrl ? getSize(candidate, candidate.fallbackUrl) : Promise.resolve(null),
-      ]);
-      return sizes.some((size) => isLargeEnough(size, settings.minImageSize)) ? candidate : null;
-    }),
-  );
-  return toViewerImages(
-    evaluated.filter((candidate): candidate is RawCandidate => candidate !== null),
-  );
+  const publish = (): void => {
+    if (disconnected) return;
+    const accepted = candidates.filter((candidate) =>
+      [candidate.url, candidate.fallbackUrl].some(
+        (url) => url && isLargeEnough(getSize(candidate, url), settings.minImageSize),
+      ),
+    );
+    const images = toViewerImages(accepted);
+    const loading = Array.from(probes.values()).some((probe) => !probe.settled);
+    const unchanged =
+      previousImages?.length === images.length &&
+      previousImages.every((image, index) => {
+        const next = images[index];
+        return (
+          image.url === next.url &&
+          image.fallbackUrl === next.fallbackUrl &&
+          image.source === next.source &&
+          image.alt === next.alt
+        );
+      });
+    if (unchanged && loading === previousLoading) return;
+    previousImages = images;
+    previousLoading = loading;
+    onUpdate(images, loading);
+  };
+
+  const releaseProbe = (probe: ImageProbe): void => {
+    probe.image.onload = null;
+    probe.image.onerror = null;
+    probe.image.removeAttribute("src");
+  };
+
+  const startProbe = (url: string): void => {
+    const key = normalizeUrl(url);
+    if (probes.has(key)) return;
+    const image = new Image();
+    const probe: ImageProbe = { image, size: null, settled: false };
+    probes.set(key, probe);
+    const finish = (size: ImageSize): void => {
+      if (disconnected || probes.get(key) !== probe) return;
+      probe.size = size;
+      probe.settled = true;
+      image.onload = null;
+      image.onerror = null;
+      publish();
+    };
+    image.onload = () => finish({ width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = () => finish(null);
+    image.src = url;
+  };
+
+  const refresh = (): void => {
+    if (disconnected) return;
+    try {
+      candidates = collectRawCandidates(settings);
+      const activeUrls = new Set<string>();
+      for (const candidate of candidates) {
+        for (const url of [candidate.url, candidate.fallbackUrl]) {
+          if (!url) continue;
+          activeUrls.add(normalizeUrl(url));
+          if (!getSize(candidate, url)) startProbe(url);
+        }
+      }
+      for (const [key, probe] of probes) {
+        if (activeUrls.has(key)) continue;
+        probes.delete(key);
+        releaseProbe(probe);
+      }
+      publish();
+    } catch (error) {
+      onError(error);
+    }
+  };
+
+  // 変化が続くページでも、更新を先送りし続けない。
+  const scheduleRefresh = (): void => {
+    if (disconnected || refreshTimer !== undefined) return;
+    refreshTimer = window.setTimeout(() => {
+      refreshTimer = undefined;
+      refresh();
+    }, IMAGE_REFRESH_DELAY_MS);
+  };
+
+  const handleLoad = (event: Event): void => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      (target instanceof HTMLImageElement || target.tagName === "LINK") &&
+      !target.closest(EXTENSION_HOST_SELECTOR)
+    ) {
+      scheduleRefresh();
+    }
+  };
+  const observer = new MutationObserver((records) => {
+    if (!records.every(isExtensionMutation)) scheduleRefresh();
+  });
+  observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: [
+      "class",
+      "style",
+      "src",
+      "srcset",
+      "sizes",
+      "href",
+      "data-src",
+      "data-srcset",
+    ],
+  });
+  document.addEventListener("load", handleLoad, true);
+  window.addEventListener("resize", scheduleRefresh);
+  refresh();
+
+  return () => {
+    disconnected = true;
+    observer.disconnect();
+    document.removeEventListener("load", handleLoad, true);
+    window.removeEventListener("resize", scheduleRefresh);
+    if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+    for (const probe of probes.values()) releaseProbe(probe);
+    probes.clear();
+  };
 }

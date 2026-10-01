@@ -97,6 +97,7 @@ export class ImageViewer {
   private readonly hoverHost: HTMLDivElement;
   private readonly elements: ViewerElements;
   private images: ViewerImage[] = [];
+  private loadingImages = false;
   private index = 0;
   private zoom = 1;
   private fitMode = false;
@@ -126,7 +127,7 @@ export class ImageViewer {
   private sourcePageUrl = "";
   private readonly share: ViewerShareMenu;
 
-  constructor() {
+  constructor(private readonly onClose?: () => void) {
     const { viewerHost, viewerShadow, hoverHost, hoverShadow } = createHosts();
     this.host = viewerHost;
     this.hoverHost = hoverHost;
@@ -173,7 +174,7 @@ export class ImageViewer {
     stage.append(image, error);
 
     const share = new ViewerShareMenu({
-      getImageUrl: () => image.currentSrc || image.src,
+      getImageUrl: () => (this.images.length > 0 ? image.currentSrc || image.src : ""),
       getPageUrl: () => this.sourcePageUrl,
       showToast: (message) => this.showToast(message),
       logFailure: (message, detail) => void logError(message, "content", detail),
@@ -226,7 +227,6 @@ export class ImageViewer {
   }
 
   openViewer(images: ViewerImage[], initialIndex = 0): void {
-    if (images.length === 0) return;
     const wasOpen = this.isOpen;
     if (!wasOpen) {
       this.previousBodyOverflow = document.body?.style.overflow ?? "";
@@ -234,7 +234,9 @@ export class ImageViewer {
       if (document.body) document.body.style.overflow = "hidden";
     }
     this.images = images;
-    this.index = ((initialIndex % images.length) + images.length) % images.length;
+    this.loadingImages = images.length === 0;
+    this.index =
+      images.length > 0 ? ((initialIndex % images.length) + images.length) % images.length : 0;
     this.isOpen = true;
     this.resetWheelState();
     this.resetSwipeVisuals(false);
@@ -255,17 +257,20 @@ export class ImageViewer {
     this.elements.close.focus({ preventScroll: true });
   }
 
-  replaceImages(images: ViewerImage[]): void {
-    if (!this.isOpen || images.length === 0) return;
-    const currentUrl = this.elements.image.currentSrc || this.elements.image.src;
+  replaceImages(images: ViewerImage[], loading = false): void {
+    if (!this.isOpen) return;
+    const current = this.images[this.index];
     this.images = images;
-    this.index = findImageIndex(images, currentUrl);
-    this.render();
+    this.loadingImages = loading;
+    this.index = findImageIndex(images, current?.url);
+    const next = images[this.index];
+    this.render(current?.url !== next?.url || current?.fallbackUrl !== next?.fallbackUrl);
   }
 
   closeViewer(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.onClose?.();
     this.resetWheelState();
     this.resetSwipeVisuals(false);
     this.share.close();
@@ -398,12 +403,14 @@ export class ImageViewer {
       }
     });
     image.addEventListener("load", () => {
+      if (!this.images[this.index]) return;
       this.elements.error.textContent = "";
       this.applyTransform();
       this.share.update();
     });
     image.addEventListener("error", () => {
       const current = this.images[this.index];
+      if (!current) return;
       if (current?.fallbackUrl && !this.fallbackAttempted && image.src !== current.fallbackUrl) {
         this.fallbackAttempted = true;
         image.src = current.fallbackUrl;
@@ -649,13 +656,23 @@ export class ImageViewer {
     this.didDrag = false;
   }
 
-  private render(): void {
+  private render(reloadImage = true): void {
     const current = this.images[this.index];
-    if (!current) return;
-    this.elements.counter.textContent = `${this.index + 1} / ${this.images.length}`;
-    this.elements.error.textContent = "";
-    this.fallbackAttempted = false;
-    this.elements.image.src = current.url;
+    this.elements.counter.textContent = `${current ? this.index + 1 : 0} / ${this.images.length}`;
+    this.elements.image.style.visibility = current ? "" : "hidden";
+    if (!current) {
+      this.elements.image.removeAttribute("src");
+      this.elements.error.textContent = this.loadingImages
+        ? "画像を読み込んでいます"
+        : "表示できる画像がありません";
+      this.share.update();
+      return;
+    }
+    if (reloadImage) {
+      this.elements.error.textContent = "";
+      this.fallbackAttempted = false;
+      this.elements.image.src = current.url;
+    }
     this.share.update();
     this.applyTransform();
   }
@@ -694,6 +711,6 @@ export class ImageViewer {
   }
 }
 
-export function createImageViewer(): ImageViewer {
-  return new ImageViewer();
+export function createImageViewer(onClose?: () => void): ImageViewer {
+  return new ImageViewer(onClose);
 }
