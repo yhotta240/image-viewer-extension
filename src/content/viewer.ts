@@ -7,6 +7,7 @@ import {
   Download,
   type IconNode,
   Images,
+  LayoutGrid,
   Maximize2,
   Minimize2,
   RotateCw,
@@ -43,6 +44,8 @@ type ViewerElements = {
   rotate: HTMLButtonElement;
   close: HTMLButtonElement;
   hover: HTMLButtonElement;
+  gallery: HTMLDivElement;
+  galleryToggle: HTMLButtonElement;
 };
 
 function createHosts(): {
@@ -126,6 +129,8 @@ export class ImageViewer {
   private isOpen = false;
   private sourcePageUrl = "";
   private readonly share: ViewerShareMenu;
+  private galleryVisible = false;
+  private readonly galleryItems = new Map<string, HTMLButtonElement>();
 
   constructor(private readonly onClose?: () => void) {
     const { viewerHost, viewerShadow, hoverHost, hoverShadow } = createHosts();
@@ -160,6 +165,8 @@ export class ImageViewer {
     appendLucideIcon(rotate, RotateCw, 18);
     const close = makeButton("", "close", "閉じる");
     appendLucideIcon(close, X, 18);
+    const galleryToggle = makeButton("", "gallery-toggle", "ギャラリー表示");
+    appendLucideIcon(galleryToggle, LayoutGrid, 18);
     const counter = document.createElement("span");
     counter.className = "counter";
 
@@ -179,14 +186,30 @@ export class ImageViewer {
       showToast: (message) => this.showToast(message),
       logFailure: (message, detail) => void logError(message, "content", detail),
     });
-    topbar.append(download, zip, fit, rotate, share.element, fullscreen, info.element, close);
+    topbar.append(
+      download,
+      zip,
+      galleryToggle,
+      fit,
+      rotate,
+      share.element,
+      fullscreen,
+      info.element,
+      close,
+    );
+
+    const gallery = document.createElement("div");
+    gallery.className = "gallery";
+    gallery.hidden = true;
+    gallery.setAttribute("role", "region");
+    gallery.setAttribute("aria-label", "画像一覧");
 
     const prev = makeButton("", "nav prev", "前の画像");
     const next = makeButton("", "nav next", "次の画像");
     appendLucideIcon(prev, ChevronLeft, 22);
     appendLucideIcon(next, ChevronRight, 22);
     stage.append(prev, next);
-    viewer.append(topbar, stage, counter);
+    viewer.append(topbar, stage, gallery, counter);
 
     const hover = makeButton("", "hover-button", "Image Viewerで開く (Alt + クリック)");
     appendLucideIcon(hover, Images, 14);
@@ -214,12 +237,72 @@ export class ImageViewer {
       rotate,
       close,
       hover,
+      gallery,
+      galleryToggle,
     };
     this.share = share;
     this.updateFullscreenButton();
     this.updateFitButton();
     this.setupEvents();
     void this.restoreFitMode();
+  }
+
+  private renderGallery(): void {
+    const { gallery } = this.elements;
+    if (this.galleryItems.size === 0) gallery.textContent = "";
+    const keys = new Set(
+      this.images.map((image) => JSON.stringify([image.url, image.fallbackUrl])),
+    );
+    for (const [key, button] of this.galleryItems) {
+      if (keys.has(key)) continue;
+      button.remove();
+      this.galleryItems.delete(key);
+    }
+    this.images.forEach((image, index) => {
+      const key = JSON.stringify([image.url, image.fallbackUrl]);
+      let button = this.galleryItems.get(key);
+      if (!button) {
+        button = makeButton("", "gallery-item", "");
+        const thumb = document.createElement("img");
+        thumb.className = "gallery-thumbnail";
+        thumb.alt = "";
+        thumb.loading = "lazy";
+        thumb.decoding = "async";
+        thumb.draggable = false;
+        thumb.addEventListener("error", () => {
+          if (image.fallbackUrl && thumb.src !== image.fallbackUrl) {
+            thumb.src = image.fallbackUrl;
+          } else {
+            thumb.alt = "この画像を表示できません";
+          }
+        });
+        thumb.src = image.url;
+        button.append(thumb);
+        button.addEventListener("click", () => {
+          const selectedIndex = this.images.findIndex(
+            (item) => item.url === image.url && item.fallbackUrl === image.fallbackUrl,
+          );
+          if (selectedIndex < 0) return;
+          this.index = selectedIndex;
+          this.galleryVisible = false;
+          this.resetZoom();
+          this.render();
+          this.elements.close.focus();
+        });
+        this.galleryItems.set(key, button);
+      }
+      const label = `${image.alt || `画像 ${index + 1}`}を開く`;
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      if (gallery.children[index] !== button) {
+        gallery.insertBefore(button, gallery.children[index] ?? null);
+      }
+    });
+    if (this.images.length === 0) {
+      gallery.textContent = this.loadingImages
+        ? "画像を読み込んでいます"
+        : "表示できる画像がありません";
+    }
   }
 
   get open(): boolean {
@@ -229,6 +312,7 @@ export class ImageViewer {
   openViewer(images: ViewerImage[], initialIndex = 0): void {
     const wasOpen = this.isOpen;
     if (!wasOpen) {
+      this.galleryVisible = false;
       this.previousBodyOverflow = document.body?.style.overflow ?? "";
       this.sourcePageUrl = location.href;
       if (document.body) document.body.style.overflow = "hidden";
@@ -280,6 +364,8 @@ export class ImageViewer {
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.cancelHoverHide();
+    this.galleryItems.clear();
+    this.elements.gallery.replaceChildren();
     if (document.body) document.body.style.overflow = this.previousBodyOverflow;
     this.host.style.display = "none";
   }
@@ -339,6 +425,13 @@ export class ImageViewer {
     const { viewer, close, prev, next, download, zip, fullscreen, fit, rotate, image } =
       this.elements;
     close.addEventListener("click", () => this.closeViewer());
+    this.elements.galleryToggle.addEventListener("click", () => {
+      this.galleryVisible = !this.galleryVisible;
+      this.pointerStart = null;
+      this.resetWheelState();
+      this.share.close();
+      this.render();
+    });
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
     download.addEventListener("click", () => void this.handleCurrentDownload());
@@ -369,7 +462,7 @@ export class ImageViewer {
     viewer.addEventListener(
       "wheel",
       (event) => {
-        if (!this.isOpen || event.target === image) return;
+        if (!this.isOpen || this.galleryVisible || event.target === image) return;
         event.preventDefault();
         if (event.deltaY === 0 || this.wheelCooldown) return;
 
@@ -394,10 +487,10 @@ export class ImageViewer {
         if (!this.share.handleEscape()) {
           this.closeViewer();
         }
-      } else if (event.key === "ArrowLeft") {
+      } else if (!this.galleryVisible && event.key === "ArrowLeft") {
         event.preventDefault();
         this.move(-1);
-      } else if (event.key === "ArrowRight") {
+      } else if (!this.galleryVisible && event.key === "ArrowRight") {
         event.preventDefault();
         this.move(1);
       }
@@ -449,6 +542,7 @@ export class ImageViewer {
     );
     viewer.addEventListener("pointerdown", (event) => {
       if (
+        this.galleryVisible ||
         this.share.containsTarget(event.target) ||
         (event.target instanceof Element &&
           (event.target.closest("button") || event.target.closest(".info-panel")))
@@ -506,7 +600,7 @@ export class ImageViewer {
   }
 
   private move(delta: number): void {
-    if (!this.isOpen || this.images.length === 0) return;
+    if (!this.isOpen || this.galleryVisible || this.images.length === 0) return;
     this.index = (this.index + delta + this.images.length) % this.images.length;
     this.resetZoom();
     this.render();
@@ -657,6 +751,21 @@ export class ImageViewer {
   }
 
   private render(reloadImage = true): void {
+    const { viewer, stage, gallery, galleryToggle, download, fit, rotate, info } = this.elements;
+    viewer.classList.toggle("gallery-mode", this.galleryVisible);
+    stage.hidden = this.galleryVisible;
+    gallery.hidden = !this.galleryVisible;
+    galleryToggle.setAttribute("aria-pressed", String(this.galleryVisible));
+    galleryToggle.title = this.galleryVisible ? "画像を表示" : "ギャラリー表示";
+    galleryToggle.setAttribute("aria-label", galleryToggle.title);
+    for (const element of [download, fit, rotate, info.element, this.share.element]) {
+      element.hidden = this.galleryVisible;
+    }
+    if (this.galleryVisible) {
+      this.elements.counter.textContent = `${this.images.length} 枚`;
+      this.renderGallery();
+      return;
+    }
     const current = this.images[this.index];
     this.elements.counter.textContent = `${current ? this.index + 1 : 0} / ${this.images.length}`;
     this.elements.image.style.visibility = current ? "" : "hidden";

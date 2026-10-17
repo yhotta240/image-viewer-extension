@@ -18,6 +18,7 @@
 }
 
 .viewer[hidden],
+.viewer [hidden],
 .hover-button[hidden] {
   display: none;
 }
@@ -81,6 +82,7 @@ button:hover {
 .info-button,
 .share-button,
 .fit,
+.gallery-toggle,
 .rotate,
 .nav,
 .hover-button {
@@ -145,7 +147,8 @@ button:hover {
   font-size: 0;
 }
 
-.fit {
+.fit,
+.gallery-toggle {
   position: relative;
   width: 32px;
   height: 32px;
@@ -155,16 +158,19 @@ button:hover {
   transition: background 120ms ease;
 }
 
-.fit:hover {
+.fit:hover,
+.gallery-toggle:hover {
   background: transparent;
 }
 
-.fit[aria-pressed="true"] {
+.fit[aria-pressed="true"],
+.gallery-toggle[aria-pressed="true"] {
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.12);
 }
 
-.fit[aria-pressed="true"]:hover {
+.fit[aria-pressed="true"]:hover,
+.gallery-toggle[aria-pressed="true"]:hover {
   background: rgba(255, 255, 255, 0.16);
 }
 
@@ -420,6 +426,77 @@ button:hover {
   display: block;
   width: 14px;
   height: 14px;
+}
+
+.viewer.gallery-mode {
+  touch-action: pan-y;
+}
+
+.gallery {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 56px 16px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.95);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.gallery-item {
+  position: relative;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  aspect-ratio: 4 / 3;
+}
+
+.gallery-item:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.gallery-thumbnail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.8;
+  transition: opacity 120ms ease;
+  display: block;
+}
+
+.gallery-thumbnail:hover {
+  opacity: 1;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure gallery scrollbars are visible */
+.gallery::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.gallery::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+}
+
+.gallery::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.gallery::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .toast {
