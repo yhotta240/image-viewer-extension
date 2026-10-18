@@ -348,7 +348,7 @@ export class ImageViewer {
     this.loadingImages = loading;
     this.index = findImageIndex(images, current?.url);
     const next = images[this.index];
-    if (current?.url !== next?.url) this.resetZoom();
+    if (current?.url !== next?.url || current?.fallbackUrl !== next?.fallbackUrl) this.resetZoom();
     this.render(current?.url !== next?.url || current?.fallbackUrl !== next?.fallbackUrl);
   }
 
