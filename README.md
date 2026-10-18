@@ -13,7 +13,7 @@
 
 ## インストール
 
-### Chrome Web Store からインストール
+
 
 [Image Viewer - Chrome Web Store](https://chromewebstore.google.com/detail/mlenbajimihbknnalkghalcleledbpoe?utm_source=item-share-cb)
 
@@ -24,8 +24,8 @@
 1. このリポジトリをクローン
 
    ```bash
-   git clone https://github.com/yhotta240/http-actions-extension.git
-   cd http-actions-extension
+   git clone https://github.com/yhotta240/image-viewer-extension.git
+   cd image-viewer-extension
    ```
 
 2. 依存関係をインストール
