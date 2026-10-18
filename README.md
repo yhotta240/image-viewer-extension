@@ -13,7 +13,7 @@
 
 ## インストール
 
-
+### Chrome Web Store からインストール
 
 [Image Viewer - Chrome Web Store](https://chromewebstore.google.com/detail/mlenbajimihbknnalkghalcleledbpoe?utm_source=item-share-cb)
 

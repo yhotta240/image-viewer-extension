@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-10-18
+
+### added
+
+- ビューア右上のアイコンから画像を一覧で確認できるギャラリー表示
+
+### fixed
+
+- 画像が変わったときに，前の画像の拡大率・回転・表示位置が残る問題を修正
+
 ## [0.1.2] - 2026-10-01
 
 ### fixed
