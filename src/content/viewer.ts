@@ -505,6 +505,7 @@ export class ImageViewer {
         this.galleryFit = !this.galleryFit;
         this.updateFitButton();
         this.renderGallery();
+        void setStorage({ galleryFit: this.galleryFit }).catch(() => undefined);
         return;
       }
       this.fitMode = !this.fitMode;
@@ -769,13 +770,19 @@ export class ImageViewer {
 
   private async restoreFitMode(): Promise<void> {
     try {
-      const data = await getStorage<{ fitMode?: boolean }>("fitMode");
+      const data = await getStorage<{ fitMode?: boolean; galleryFit?: boolean }>([
+        "fitMode",
+        "galleryFit",
+      ]);
       this.fitMode = data.fitMode === true;
+      this.galleryFit = data.galleryFit === true;
     } catch {
       this.fitMode = false;
+      this.galleryFit = false;
     }
     this.updateFitButton();
     if (this.isOpen) this.applyTransform();
+    if (this.isOpen && this.galleryVisible) this.renderGallery();
   }
 
   private resetSwipeVisuals(animate: boolean): void {
