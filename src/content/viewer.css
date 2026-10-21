@@ -463,6 +463,19 @@ button:hover {
   outline-offset: 2px;
 }
 
+.gallery.gallery-fit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  scrollbar-gutter: stable;
+}
+
+.gallery-fit .gallery-item {
+  flex-shrink: 0;
+  aspect-ratio: auto;
+  border: 0;
+}
+
 .gallery-thumbnail {
   position: absolute;
   inset: 0;
