@@ -463,7 +463,7 @@ button:hover {
   outline-offset: 2px;
 }
 
-.gallery.gallery-fit {
+.gallery.gallery-fit:not([hidden]) {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
