@@ -13,6 +13,8 @@ import {
   Minimize2,
   RotateCw,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide";
 import { logError, logWarn } from "../utils/logger";
 import { getStorage, setStorage } from "../utils/storage";
@@ -47,6 +49,10 @@ type ViewerElements = {
   hover: HTMLButtonElement;
   gallery: HTMLDivElement;
   galleryToggle: HTMLButtonElement;
+  gallerySize: HTMLDivElement;
+  gallerySmaller: HTMLButtonElement;
+  galleryLarger: HTMLButtonElement;
+  galleryScaleLabel: HTMLSpanElement;
 };
 
 function createHosts(): {
@@ -132,6 +138,7 @@ export class ImageViewer {
   private readonly share: ViewerShareMenu;
   private galleryVisible = false;
   private galleryFit = false;
+  private galleryScale = 1;
   private galleryLayoutFrame: number | undefined;
   private readonly galleryItems = new Map<string, HTMLButtonElement>();
 
@@ -159,6 +166,19 @@ export class ImageViewer {
     appendLucideIcon(download, Download, 18);
     const zip = makeButton("", "download-zip", "すべての画像をZIPでダウンロード");
     appendLucideIcon(zip, Archive, 18);
+    const gallerySize = document.createElement("div");
+    gallerySize.className = "gallery-size";
+    gallerySize.hidden = true;
+    gallerySize.setAttribute("role", "group");
+    gallerySize.setAttribute("aria-label", "ギャラリーの画像サイズ");
+    const gallerySmaller = makeButton("", "gallery-size-button", "ギャラリーの画像を縮小");
+    const galleryLarger = makeButton("", "gallery-size-button", "ギャラリーの画像を拡大");
+    appendLucideIcon(gallerySmaller, ZoomOut, 16);
+    appendLucideIcon(galleryLarger, ZoomIn, 16);
+    const galleryScaleLabel = document.createElement("span");
+    galleryScaleLabel.setAttribute("aria-live", "polite");
+    galleryScaleLabel.title = "画像サイズ（100%＝最大160px）";
+    gallerySize.append(gallerySmaller, galleryScaleLabel, galleryLarger);
     const fullscreen = makeButton("", "fullscreen", "全画面表示");
     appendLucideIcon(fullscreen, Maximize2, 18);
     const info = new ImageInfoPanel();
@@ -191,6 +211,7 @@ export class ImageViewer {
     });
     topbar.append(
       download,
+      gallerySize,
       zip,
       galleryToggle,
       fit,
@@ -242,6 +263,10 @@ export class ImageViewer {
       hover,
       gallery,
       galleryToggle,
+      gallerySize,
+      gallerySmaller,
+      galleryLarger,
+      galleryScaleLabel,
     };
     this.share = share;
     this.updateFullscreenButton();
@@ -253,6 +278,9 @@ export class ImageViewer {
 
   private renderGallery(): void {
     const { gallery } = this.elements;
+    this.elements.galleryScaleLabel.textContent = `${Math.round(this.galleryScale * 100)}%`;
+    this.elements.gallerySmaller.disabled = this.galleryScale <= 0.5;
+    this.elements.galleryLarger.disabled = this.galleryScale >= 2;
     if (this.galleryItems.size === 0) gallery.textContent = "";
     const keys = new Set(
       this.images.map((image) => JSON.stringify([image.url, image.fallbackUrl])),
@@ -309,38 +337,38 @@ export class ImageViewer {
         : "表示できる画像がありません";
     }
     gallery.classList.toggle("gallery-fit", this.galleryFit);
-    if (this.galleryFit) {
-      this.scheduleGalleryLayout();
-    } else {
+    if (!this.galleryFit) {
       for (const button of this.galleryItems.values()) {
         button.style.width = "";
         button.style.height = "";
         button.style.flexGrow = "";
       }
     }
+    this.scheduleGalleryLayout();
   }
 
   private scheduleGalleryLayout(): void {
-    if (
-      !this.isOpen ||
-      !this.galleryVisible ||
-      !this.galleryFit ||
-      this.galleryLayoutFrame !== undefined
-    )
-      return;
+    if (!this.isOpen || !this.galleryVisible || this.galleryLayoutFrame !== undefined) return;
     this.galleryLayoutFrame = window.requestAnimationFrame(() => {
       this.galleryLayoutFrame = undefined;
-      if (!this.isOpen || !this.galleryVisible || !this.galleryFit) return;
+      if (!this.isOpen || !this.galleryVisible) return;
       const { gallery } = this.elements;
       const style = window.getComputedStyle(gallery);
       const width =
         gallery.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       if (width <= 0) return;
       const gap = parseFloat(style.columnGap);
+      const maxHeight = 160 * this.galleryScale;
+      if (!this.galleryFit) {
+        const columns = Math.max(1, Math.ceil((width + gap) / (maxHeight * (4 / 3) + gap)));
+        gallery.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+        return;
+      }
+      gallery.style.gridTemplateColumns = "";
       let row: { button: HTMLButtonElement; ratio: number }[] = [];
       let ratios = 0;
       const finishRow = (full: boolean) => {
-        const height = Math.min(full ? Infinity : 160, (width - gap * (row.length - 1)) / ratios);
+        const height = Math.min(maxHeight, (width - gap * (row.length - 1)) / ratios);
         for (const { button, ratio } of row) {
           button.style.width = `${Math.max(1, Math.floor(height * ratio))}px`;
           button.style.height = `${height}px`;
@@ -358,7 +386,7 @@ export class ImageViewer {
             : 4 / 3;
         row.push({ button, ratio });
         ratios += ratio;
-        if (ratios * 160 + gap * (row.length - 1) >= width) finishRow(true);
+        if (ratios * maxHeight + gap * (row.length - 1) >= width) finishRow(true);
       }
       if (row.length) finishRow(false);
     });
@@ -496,6 +524,17 @@ export class ImageViewer {
       this.share.close();
       this.render();
     });
+    for (const [button, step] of [
+      [this.elements.gallerySmaller, -0.25],
+      [this.elements.galleryLarger, 0.25],
+    ] as const) {
+      button.addEventListener("click", () => {
+        if (!this.galleryVisible) return;
+        this.galleryScale = Math.max(0.5, Math.min(2, this.galleryScale + step));
+        this.renderGallery();
+        void setStorage({ galleryScale: this.galleryScale }).catch(() => undefined);
+      });
+    }
     prev.addEventListener("click", () => this.move(-1));
     next.addEventListener("click", () => this.move(1));
     download.addEventListener("click", () => void this.handleCurrentDownload());
@@ -771,15 +810,21 @@ export class ImageViewer {
 
   private async restoreFitMode(): Promise<void> {
     try {
-      const data = await getStorage<{ fitMode?: boolean; galleryFit?: boolean }>([
-        "fitMode",
-        "galleryFit",
-      ]);
+      const data = await getStorage<{
+        fitMode?: boolean;
+        galleryFit?: boolean;
+        galleryScale?: number;
+      }>(["fitMode", "galleryFit", "galleryScale"]);
       this.fitMode = data.fitMode === true;
       this.galleryFit = data.galleryFit === true;
+      this.galleryScale =
+        typeof data.galleryScale === "number" && Number.isFinite(data.galleryScale)
+          ? Math.max(0.5, Math.min(2, Math.round(data.galleryScale * 4) / 4))
+          : 1;
     } catch {
       this.fitMode = false;
       this.galleryFit = false;
+      this.galleryScale = 1;
     }
     this.updateFitButton();
     if (this.isOpen) this.applyTransform();
@@ -839,6 +884,7 @@ export class ImageViewer {
     viewer.classList.toggle("gallery-mode", this.galleryVisible);
     stage.hidden = this.galleryVisible;
     gallery.hidden = !this.galleryVisible;
+    this.elements.gallerySize.hidden = !this.galleryVisible;
     galleryToggle.setAttribute("aria-pressed", String(this.galleryVisible));
     galleryToggle.title = this.galleryVisible ? "画像を表示" : "ギャラリー表示";
     galleryToggle.setAttribute("aria-label", galleryToggle.title);
