@@ -341,7 +341,7 @@ export class ImageViewer {
       const finishRow = (full: boolean) => {
         const height = Math.min(full ? Infinity : 160, (width - gap * (row.length - 1)) / ratios);
         for (const { button, ratio } of row) {
-          button.style.width = `${Math.floor(height * ratio)}px`;
+          button.style.width = `${Math.max(1, Math.floor(height * ratio))}px`;
           button.style.height = `${height}px`;
           button.style.flexGrow = full ? String(ratio / ratios) : "0";
         }
