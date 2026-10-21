@@ -339,7 +339,7 @@ export class ImageViewer {
       let row: { button: HTMLButtonElement; ratio: number }[] = [];
       let ratios = 0;
       const finishRow = (full: boolean) => {
-        const height = Math.min(full ? Infinity : 150, (width - gap * (row.length - 1)) / ratios);
+        const height = Math.min(full ? Infinity : 160, (width - gap * (row.length - 1)) / ratios);
         for (const { button, ratio } of row) {
           button.style.width = `${Math.floor(height * ratio)}px`;
           button.style.height = `${height}px`;
@@ -357,7 +357,7 @@ export class ImageViewer {
             : 4 / 3;
         row.push({ button, ratio });
         ratios += ratio;
-        if (ratios * 150 + gap * (row.length - 1) >= width) finishRow(true);
+        if (ratios * 160 + gap * (row.length - 1) >= width) finishRow(true);
       }
       if (row.length) finishRow(false);
     });
