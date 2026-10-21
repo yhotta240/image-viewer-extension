@@ -6,6 +6,7 @@ import {
   createElement as createLucideElement,
   Download,
   type IconNode,
+  Image as ImageIcon,
   Images,
   LayoutGrid,
   Maximize2,
@@ -841,6 +842,8 @@ export class ImageViewer {
     galleryToggle.setAttribute("aria-pressed", String(this.galleryVisible));
     galleryToggle.title = this.galleryVisible ? "画像を表示" : "ギャラリー表示";
     galleryToggle.setAttribute("aria-label", galleryToggle.title);
+    galleryToggle.replaceChildren();
+    appendLucideIcon(galleryToggle, this.galleryVisible ? ImageIcon : LayoutGrid, 18);
     this.updateFitButton();
     for (const element of [download, rotate, info.element, this.share.element]) {
       element.hidden = this.galleryVisible;
