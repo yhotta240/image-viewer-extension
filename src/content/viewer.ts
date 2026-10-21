@@ -130,6 +130,8 @@ export class ImageViewer {
   private sourcePageUrl = "";
   private readonly share: ViewerShareMenu;
   private galleryVisible = false;
+  private galleryFit = false;
+  private galleryLayoutFrame: number | undefined;
   private readonly galleryItems = new Map<string, HTMLButtonElement>();
 
   constructor(private readonly onClose?: () => void) {
@@ -244,6 +246,7 @@ export class ImageViewer {
     this.updateFullscreenButton();
     this.updateFitButton();
     this.setupEvents();
+    new ResizeObserver(() => this.scheduleGalleryLayout()).observe(gallery);
     void this.restoreFitMode();
   }
 
@@ -269,6 +272,7 @@ export class ImageViewer {
         thumb.loading = "lazy";
         thumb.decoding = "async";
         thumb.draggable = false;
+        thumb.addEventListener("load", () => this.scheduleGalleryLayout());
         thumb.addEventListener("error", () => {
           if (image.fallbackUrl && thumb.src !== image.fallbackUrl) {
             thumb.src = image.fallbackUrl;
@@ -303,6 +307,60 @@ export class ImageViewer {
         ? "画像を読み込んでいます"
         : "表示できる画像がありません";
     }
+    gallery.classList.toggle("gallery-fit", this.galleryFit);
+    if (this.galleryFit) {
+      this.scheduleGalleryLayout();
+    } else {
+      for (const button of this.galleryItems.values()) {
+        button.style.width = "";
+        button.style.height = "";
+        button.style.flexGrow = "";
+      }
+    }
+  }
+
+  private scheduleGalleryLayout(): void {
+    if (
+      !this.isOpen ||
+      !this.galleryVisible ||
+      !this.galleryFit ||
+      this.galleryLayoutFrame !== undefined
+    )
+      return;
+    this.galleryLayoutFrame = window.requestAnimationFrame(() => {
+      this.galleryLayoutFrame = undefined;
+      if (!this.isOpen || !this.galleryVisible || !this.galleryFit) return;
+      const { gallery } = this.elements;
+      const style = window.getComputedStyle(gallery);
+      const width =
+        gallery.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      if (width <= 0) return;
+      const gap = parseFloat(style.columnGap);
+      let row: { button: HTMLButtonElement; ratio: number }[] = [];
+      let ratios = 0;
+      const finishRow = (full: boolean) => {
+        const height = Math.min(full ? Infinity : 160, (width - gap * (row.length - 1)) / ratios);
+        for (const { button, ratio } of row) {
+          button.style.width = `${Math.max(1, Math.floor(height * ratio))}px`;
+          button.style.height = `${height}px`;
+          button.style.flexGrow = full ? String(ratio / ratios) : "0";
+        }
+        row = [];
+        ratios = 0;
+      };
+      for (const button of Array.from(gallery.children) as HTMLButtonElement[]) {
+        if (row.length && gap * row.length >= width) finishRow(true);
+        const thumb = button.firstElementChild as HTMLImageElement;
+        const ratio =
+          thumb.naturalWidth > 0 && thumb.naturalHeight > 0
+            ? thumb.naturalWidth / thumb.naturalHeight
+            : 4 / 3;
+        row.push({ button, ratio });
+        ratios += ratio;
+        if (ratios * 160 + gap * (row.length - 1) >= width) finishRow(true);
+      }
+      if (row.length) finishRow(false);
+    });
   }
 
   get open(): boolean {
@@ -365,6 +423,10 @@ export class ImageViewer {
     this.clearHoverAnchor();
     this.hoverHost.style.display = "none";
     this.cancelHoverHide();
+    if (this.galleryLayoutFrame !== undefined) {
+      window.cancelAnimationFrame(this.galleryLayoutFrame);
+      this.galleryLayoutFrame = undefined;
+    }
     this.galleryItems.clear();
     this.elements.gallery.replaceChildren();
     if (document.body) document.body.style.overflow = this.previousBodyOverflow;
@@ -439,6 +501,13 @@ export class ImageViewer {
     zip.addEventListener("click", () => void this.handleZipDownload());
     fullscreen.addEventListener("click", () => void this.toggleFullscreen());
     fit.addEventListener("click", () => {
+      if (this.galleryVisible) {
+        this.galleryFit = !this.galleryFit;
+        this.updateFitButton();
+        this.renderGallery();
+        void setStorage({ galleryFit: this.galleryFit }).catch(() => undefined);
+        return;
+      }
       this.fitMode = !this.fitMode;
       this.zoom = 1;
       this.panX = 0;
@@ -686,21 +755,34 @@ export class ImageViewer {
 
   private updateFitButton(): void {
     const { fit } = this.elements;
-    const title = this.fitMode ? "通常表示に戻す" : "画面にフィット";
+    const active = this.galleryVisible ? this.galleryFit : this.fitMode;
+    const title = this.galleryVisible
+      ? active
+        ? "固定表示に戻す"
+        : "画像にフィット"
+      : active
+        ? "通常表示に戻す"
+        : "画面にフィット";
     fit.title = title;
     fit.setAttribute("aria-label", title);
-    fit.setAttribute("aria-pressed", String(this.fitMode));
+    fit.setAttribute("aria-pressed", String(active));
   }
 
   private async restoreFitMode(): Promise<void> {
     try {
-      const data = await getStorage<{ fitMode?: boolean }>("fitMode");
+      const data = await getStorage<{ fitMode?: boolean; galleryFit?: boolean }>([
+        "fitMode",
+        "galleryFit",
+      ]);
       this.fitMode = data.fitMode === true;
+      this.galleryFit = data.galleryFit === true;
     } catch {
       this.fitMode = false;
+      this.galleryFit = false;
     }
     this.updateFitButton();
     if (this.isOpen) this.applyTransform();
+    if (this.isOpen && this.galleryVisible) this.renderGallery();
   }
 
   private resetSwipeVisuals(animate: boolean): void {
@@ -752,14 +834,15 @@ export class ImageViewer {
   }
 
   private render(reloadImage = true): void {
-    const { viewer, stage, gallery, galleryToggle, download, fit, rotate, info } = this.elements;
+    const { viewer, stage, gallery, galleryToggle, download, rotate, info } = this.elements;
     viewer.classList.toggle("gallery-mode", this.galleryVisible);
     stage.hidden = this.galleryVisible;
     gallery.hidden = !this.galleryVisible;
     galleryToggle.setAttribute("aria-pressed", String(this.galleryVisible));
     galleryToggle.title = this.galleryVisible ? "画像を表示" : "ギャラリー表示";
     galleryToggle.setAttribute("aria-label", galleryToggle.title);
-    for (const element of [download, fit, rotate, info.element, this.share.element]) {
+    this.updateFitButton();
+    for (const element of [download, rotate, info.element, this.share.element]) {
       element.hidden = this.galleryVisible;
     }
     if (this.galleryVisible) {
