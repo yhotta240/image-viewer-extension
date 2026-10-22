@@ -16,6 +16,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide";
+import type { ImageViewerSettings } from "../settings";
 import { logError, logWarn } from "../utils/logger";
 import { getStorage, setStorage } from "../utils/storage";
 import { findImageIndex, type ViewerImage } from "./collector";
@@ -396,10 +397,14 @@ export class ImageViewer {
     return this.isOpen;
   }
 
-  openViewer(images: ViewerImage[], initialIndex = 0): void {
+  openViewer(
+    images: ViewerImage[],
+    initialIndex = 0,
+    initialView: ImageViewerSettings["initialView"] = "preview",
+  ): void {
     const wasOpen = this.isOpen;
     if (!wasOpen) {
-      this.galleryVisible = false;
+      this.galleryVisible = initialView === "gallery";
       this.previousBodyOverflow = document.body?.style.overflow ?? "";
       this.sourcePageUrl = location.href;
       if (document.body) document.body.style.overflow = "hidden";

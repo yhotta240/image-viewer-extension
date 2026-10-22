@@ -117,6 +117,15 @@
       <ul class="list-group list-group-flush">
         <li class="list-group-item">
           <div class="mb-3">
+            <label for="initial-view" class="form-label">最初に開く表示：</label>
+            <select class="form-select" id="initial-view">
+              <option value="preview">プレビュー</option>
+              <option value="gallery">ギャラリー</option>
+            </select>
+          </div>
+        </li>
+        <li class="list-group-item">
+          <div class="mb-3">
             <label for="min-image-size" class="form-label d-flex">最小画像サイズ：</label>
             <div class="input-group">
               <input type="number" class="form-control" id="min-image-size" min="64" max="2000" step="1">
