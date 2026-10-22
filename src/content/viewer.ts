@@ -177,7 +177,7 @@ export class ImageViewer {
     appendLucideIcon(galleryLarger, ZoomIn, 16);
     const galleryScaleLabel = document.createElement("span");
     galleryScaleLabel.setAttribute("aria-live", "polite");
-    galleryScaleLabel.title = "画像サイズ（100%＝最大160px）";
+    galleryScaleLabel.title = "画像サイズ（100%＝最大200px）";
     gallerySize.append(gallerySmaller, galleryScaleLabel, galleryLarger);
     const fullscreen = makeButton("", "fullscreen", "全画面表示");
     appendLucideIcon(fullscreen, Maximize2, 18);
@@ -358,7 +358,7 @@ export class ImageViewer {
         gallery.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       if (width <= 0) return;
       const gap = parseFloat(style.columnGap);
-      const maxHeight = 160 * this.galleryScale;
+      const maxHeight = 200 * this.galleryScale;
       if (!this.galleryFit) {
         const columns = Math.max(1, Math.ceil((width + gap) / (maxHeight * (4 / 3) + gap)));
         gallery.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
