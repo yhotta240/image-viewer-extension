@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-10-23
+
+### changed
+
+- 未拡大時は，画像上のホイールでも前後の画像に切り替わるように変更
+- 設定画面の入力欄と余白をコンパクトに調整
+
+### fixed
+
+- プレビュー画像をドラッグ＆ドロップできない問題を修正
+
 ## [0.3.0] - 2026-10-22
 
 ### added
