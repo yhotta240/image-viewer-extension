@@ -50,7 +50,7 @@ function openViewer(sourceUrl?: string): void {
   stopImageObservation = undefined;
   try {
     const images = collectLoadedViewerImages(settings);
-    viewer.openViewer(images, findImageIndex(images, sourceUrl));
+    viewer.openViewer(images, findImageIndex(images, sourceUrl), settings.initialView);
     startImageObservation(sourceUrl, images.length === 0);
   } catch (error) {
     void logError("画像の収集に失敗しました", "content", error);

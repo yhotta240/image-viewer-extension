@@ -25,6 +25,7 @@ export class PopupManager {
   private manifestData: chrome.runtime.Manifest;
   private manifestMetadata: ManifestMetadata;
   private enabledElement: HTMLInputElement | null;
+  private initialViewElement: HTMLSelectElement | null;
   private minImageSizeElement: HTMLInputElement | null;
   private includeBackgroundImagesElement: HTMLInputElement | null;
   private showHoverButtonElement: HTMLInputElement | null;
@@ -34,6 +35,7 @@ export class PopupManager {
     this.manifestData = chrome.runtime.getManifest();
     this.manifestMetadata = meta || {};
     this.enabledElement = document.getElementById("enabled") as HTMLInputElement | null;
+    this.initialViewElement = document.getElementById("initial-view") as HTMLSelectElement | null;
     this.minImageSizeElement = document.getElementById("min-image-size") as HTMLInputElement | null;
     this.includeBackgroundImagesElement = document.getElementById(
       "include-background-images",
@@ -66,6 +68,9 @@ export class PopupManager {
       this.settings = await getSettings();
       this.enabled = await isEnabled();
       if (this.enabledElement) this.enabledElement.checked = this.enabled;
+      if (this.initialViewElement)
+        this.initialViewElement.value =
+          this.settings.initialView === "gallery" ? "gallery" : "preview";
       if (this.minImageSizeElement)
         this.minImageSizeElement.value = String(this.settings.minImageSize);
       if (this.includeBackgroundImagesElement) {
@@ -118,6 +123,16 @@ export class PopupManager {
         console.error("failed to save enabled state", err);
         await this.showLog("有効状態の保存に失敗しました", "error", err);
       }
+    });
+
+    this.initialViewElement?.addEventListener("change", async (event) => {
+      const initialView =
+        (event.target as HTMLSelectElement).value === "gallery" ? "gallery" : "preview";
+      await this.updateSettings(
+        { initialView },
+        `最初に開く表示を${initialView === "gallery" ? "ギャラリー" : "プレビュー"}にしました`,
+        "最初に開く表示の保存に失敗しました",
+      );
     });
 
     this.minImageSizeElement?.addEventListener("change", async (event) => {
