@@ -6,6 +6,12 @@ html {
   min-width: 28rem;
 }
 
+#settings .form-select,
+#settings .input-group {
+  width: 8rem;
+  flex-shrink: 0;
+}
+
 @media (min-width: 768px) {
   html {
     font-size: 1rem !important;
