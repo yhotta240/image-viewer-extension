@@ -577,7 +577,7 @@ export class ImageViewer {
     viewer.addEventListener(
       "wheel",
       (event) => {
-        if (!this.isOpen || this.galleryVisible || event.target === image) return;
+        if (!this.isOpen || this.galleryVisible || event.defaultPrevented) return;
         event.preventDefault();
         if (event.deltaY === 0 || this.wheelCooldown) return;
 
@@ -648,6 +648,7 @@ export class ImageViewer {
     image.addEventListener(
       "wheel",
       (event) => {
+        if (this.zoom === 1) return;
         event.preventDefault();
         this.zoom = Math.min(4, Math.max(1, this.zoom + (event.deltaY < 0 ? 0.25 : -0.25)));
         if (this.zoom === 1) {
