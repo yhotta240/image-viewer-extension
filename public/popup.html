@@ -112,27 +112,27 @@
     <div class="tab-pane fade mt-3 mx-2 show active" id="settings" role="tabpanel" style="margin-bottom: 180px;"
       aria-labelledby="settings-tab">
       <h5 class="">設定</h5>
-      <p class="text-muted small">ページ上の画像をビューアで表示する設定です。</p>
+      <p class="text-muted small mb-2">ページ上の画像をビューアで表示する設定です。</p>
 
       <ul class="list-group list-group-flush">
         <li class="list-group-item">
-          <div class="mb-3">
-            <label for="initial-view" class="form-label">最初に開く表示：</label>
-            <select class="form-select" id="initial-view">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <label for="initial-view" class="form-label mb-0">最初に開く表示：</label>
+            <select class="form-select form-select-sm" id="initial-view">
               <option value="preview">プレビュー</option>
               <option value="gallery">ギャラリー</option>
             </select>
           </div>
         </li>
         <li class="list-group-item">
-          <div class="mb-3">
-            <label for="min-image-size" class="form-label d-flex">最小画像サイズ：</label>
-            <div class="input-group">
-              <input type="number" class="form-control" id="min-image-size" min="64" max="2000" step="1">
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <label for="min-image-size" class="form-label mb-0">最小画像サイズ：</label>
+            <div class="input-group input-group-sm">
+              <input type="number" class="form-control" id="min-image-size" min="64" max="2000" step="1" aria-describedby="min-image-size-help">
               <span class="input-group-text">px</span>
             </div>
-            <small class="text-muted">短辺がこのサイズ未満の画像やアイコンを除外します。</small>
           </div>
+          <small class="text-muted d-block mt-1" id="min-image-size-help">短辺がこのサイズ未満の画像やアイコンを除外します。</small>
         </li>
         <li class="list-group-item">
           <div class="form-check form-switch">
