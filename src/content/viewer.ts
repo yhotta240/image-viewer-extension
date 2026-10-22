@@ -199,7 +199,7 @@ export class ImageViewer {
     const image = document.createElement("img");
     image.className = "main-image";
     image.alt = "";
-    image.draggable = false;
+    image.draggable = true;
     const error = document.createElement("div");
     error.className = "error";
     stage.append(image, error);
@@ -630,6 +630,9 @@ export class ImageViewer {
       this.share.update();
       this.updateInfo();
     });
+    image.addEventListener("dragstart", () => {
+      this.didDrag = true;
+    });
     image.addEventListener("click", () => {
       if (this.didDrag) {
         this.didDrag = false;
@@ -665,9 +668,10 @@ export class ImageViewer {
         return;
       }
       this.share.close();
+      this.didDrag = false;
+      if (event.target === image && this.zoom === 1 && event.pointerType !== "touch") return;
       const captureTarget = event.target === image ? image : viewer;
       captureTarget.setPointerCapture(event.pointerId);
-      this.didDrag = false;
       this.pointerStart = {
         x: event.clientX,
         y: event.clientY,
@@ -926,6 +930,7 @@ export class ImageViewer {
 
   private applyTransform(): void {
     const fitScale = this.getDisplayScale();
+    this.elements.image.draggable = this.zoom === 1;
     this.elements.image.style.transform = `translate(${this.panX}px, ${this.panY + this.swipeOffsetY}px) rotate(${this.rotation}deg) scale(${this.zoom * fitScale})`;
     this.elements.image.classList.toggle("zoomed", this.zoom > 1);
     this.updateInfo(this.zoom * fitScale);
