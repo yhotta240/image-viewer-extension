@@ -281,7 +281,7 @@ export class ImageViewer {
     const { gallery } = this.elements;
     this.elements.galleryScaleLabel.textContent = `${Math.round(this.galleryScale * 100)}%`;
     this.elements.gallerySmaller.disabled = this.galleryScale <= 0.5;
-    this.elements.galleryLarger.disabled = this.galleryScale >= 2;
+    this.elements.galleryLarger.disabled = this.galleryScale >= 4;
     if (this.galleryItems.size === 0) gallery.textContent = "";
     const keys = new Set(
       this.images.map((image) => JSON.stringify([image.url, image.fallbackUrl])),
@@ -535,7 +535,7 @@ export class ImageViewer {
     ] as const) {
       button.addEventListener("click", () => {
         if (!this.galleryVisible) return;
-        this.galleryScale = Math.max(0.5, Math.min(2, this.galleryScale + step));
+        this.galleryScale = Math.max(0.5, Math.min(4, this.galleryScale + step));
         this.renderGallery();
         void setStorage({ galleryScale: this.galleryScale }).catch(() => undefined);
       });
@@ -829,7 +829,7 @@ export class ImageViewer {
       this.galleryFit = data.galleryFit === true;
       this.galleryScale =
         typeof data.galleryScale === "number" && Number.isFinite(data.galleryScale)
-          ? Math.max(0.5, Math.min(2, Math.round(data.galleryScale * 4) / 4))
+          ? Math.max(0.5, Math.min(4, Math.round(data.galleryScale * 4) / 4))
           : 1;
     } catch {
       this.fitMode = false;
