@@ -5,6 +5,7 @@ export type ViewerImage = {
   fallbackUrl?: string;
   source: "img" | "background";
   alt?: string;
+  sourceElement?: HTMLElement;
 };
 
 const MIN_RENDERED_SIZE = 64;
@@ -139,6 +140,7 @@ function toViewerImages(candidates: RawCandidate[]): ViewerImage[] {
       url: candidate.url,
       fallbackUrl: candidate.fallbackUrl,
       source: candidate.source,
+      sourceElement: candidate.element,
       alt: candidate.element instanceof HTMLImageElement ? candidate.element.alt : undefined,
     });
   }
@@ -223,7 +225,8 @@ export function observeViewerImages(
           image.url === next.url &&
           image.fallbackUrl === next.fallbackUrl &&
           image.source === next.source &&
-          image.alt === next.alt
+          image.alt === next.alt &&
+          image.sourceElement === next.sourceElement
         );
       });
     if (unchanged && loading === previousLoading) return;

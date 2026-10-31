@@ -3,6 +3,7 @@ export type ImageViewerSettings = {
   includeBackgroundImages: boolean;
   showHoverButton: boolean;
   initialView: "preview" | "gallery";
+  scrollToImageOnClose: boolean;
 };
 
 export type Settings = ImageViewerSettings & {
@@ -14,4 +15,5 @@ export const DEFAULT_SETTINGS: Settings = {
   includeBackgroundImages: true,
   showHoverButton: true,
   initialView: "preview",
+  scrollToImageOnClose: false,
 };
