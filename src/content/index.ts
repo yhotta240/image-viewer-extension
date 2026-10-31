@@ -17,9 +17,32 @@ type OpenViewerMessage = {
 let settings: ImageViewerSettings = DEFAULT_SETTINGS;
 let enabled = true;
 let stopImageObservation: (() => void) | undefined;
-const viewer: ImageViewer = createImageViewer(() => {
+let closeSequence = 0;
+const viewer: ImageViewer = createImageViewer(async (sourceElement, fullscreenExit) => {
+  const sequence = ++closeSequence;
   stopImageObservation?.();
   stopImageObservation = undefined;
+  try {
+    if (fullscreenExit) await fullscreenExit;
+    if (
+      sequence !== closeSequence ||
+      viewer.open ||
+      document.fullscreenElement ||
+      !enabled ||
+      settings.scrollToImageOnClose !== true ||
+      !sourceElement?.isConnected ||
+      sourceElement === document.documentElement ||
+      sourceElement === document.body ||
+      sourceElement.getClientRects().length === 0
+    ) {
+      return;
+    }
+    const style = getComputedStyle(sourceElement);
+    if (style.visibility !== "visible" || style.opacity === "0") return;
+    sourceElement.scrollIntoView({ behavior: "instant", block: "center", inline: "nearest" });
+  } catch (error) {
+    void logError("元の画像の位置へ移動できませんでした", "content", error);
+  }
 });
 
 function startImageObservation(sourceUrl?: string, selectInitialImage = false): void {

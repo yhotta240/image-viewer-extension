@@ -29,6 +29,7 @@ export class PopupManager {
   private minImageSizeElement: HTMLInputElement | null;
   private includeBackgroundImagesElement: HTMLInputElement | null;
   private showHoverButtonElement: HTMLInputElement | null;
+  private scrollToImageOnCloseElement: HTMLInputElement | null;
 
   constructor() {
     this.panel = new PopupPanel();
@@ -42,6 +43,9 @@ export class PopupManager {
     ) as HTMLInputElement | null;
     this.showHoverButtonElement = document.getElementById(
       "show-hover-button",
+    ) as HTMLInputElement | null;
+    this.scrollToImageOnCloseElement = document.getElementById(
+      "scroll-to-image-on-close",
     ) as HTMLInputElement | null;
 
     this.initialize();
@@ -78,6 +82,8 @@ export class PopupManager {
       }
       if (this.showHoverButtonElement)
         this.showHoverButtonElement.checked = this.settings.showHoverButton;
+      if (this.scrollToImageOnCloseElement)
+        this.scrollToImageOnCloseElement.checked = this.settings.scrollToImageOnClose === true;
     } catch (err) {
       console.error("error", err);
       await this.showLog("設定の読み込みに失敗しました", "error", err);
@@ -161,6 +167,15 @@ export class PopupManager {
         { showHoverButton: enabled },
         `ホバー起動ボタンを${enabled ? "表示" : "非表示"}にしました`,
         "ホバー起動ボタン設定の保存に失敗しました",
+      );
+    });
+
+    this.scrollToImageOnCloseElement?.addEventListener("change", async (event) => {
+      const enabled = (event.target as HTMLInputElement).checked;
+      await this.updateSettings(
+        { scrollToImageOnClose: enabled },
+        `閉じたときに画像へ${enabled ? "スクロールする" : "スクロールしない"}設定を保存しました`,
+        "スクロール設定の保存に失敗しました",
       );
     });
 

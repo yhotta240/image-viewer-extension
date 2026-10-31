@@ -32,6 +32,8 @@ const WHEEL_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 90;
 const SWIPE_CLOSE_THRESHOLD = 80;
 
+type CloseHandler = (sourceElement?: HTMLElement, fullscreenExit?: Promise<void>) => void;
+
 type ViewerElements = {
   viewer: HTMLDivElement;
   stage: HTMLDivElement;
@@ -126,6 +128,7 @@ export class ImageViewer {
   private didDrag = false;
   private fallbackAttempted = false;
   private previousBodyOverflow = "";
+  private fullscreenViewport?: { width: number; height: number };
   private hoverTarget: HTMLImageElement | null = null;
   private previousAnchorName = "";
   private previousAnchorPriority = "";
@@ -143,7 +146,7 @@ export class ImageViewer {
   private galleryLayoutFrame: number | undefined;
   private readonly galleryItems = new Map<string, HTMLButtonElement>();
 
-  constructor(private readonly onClose?: () => void) {
+  constructor(private readonly onClose?: CloseHandler) {
     const { viewerHost, viewerShadow, hoverHost, hoverShadow } = createHosts();
     this.host = viewerHost;
     this.hoverHost = hoverHost;
@@ -446,12 +449,13 @@ export class ImageViewer {
 
   closeViewer(): void {
     if (!this.isOpen) return;
+    const sourceElement = this.galleryVisible ? undefined : this.images[this.index]?.sourceElement;
     this.isOpen = false;
-    this.onClose?.();
     this.resetWheelState();
     this.resetSwipeVisuals(false);
     this.share.close();
-    if (document.fullscreenElement === this.host) void document.exitFullscreen();
+    const fullscreenExit =
+      document.fullscreenElement === this.host ? this.exitFullscreenForClose() : undefined;
     this.elements.viewer.hidden = true;
     this.elements.hover.hidden = true;
     this.clearHoverAnchor();
@@ -465,6 +469,7 @@ export class ImageViewer {
     this.elements.gallery.replaceChildren();
     if (document.body) document.body.style.overflow = this.previousBodyOverflow;
     this.host.style.display = "none";
+    this.onClose?.(sourceElement, fullscreenExit);
   }
 
   showHoverButton(target: HTMLImageElement, open: () => void): void {
@@ -733,11 +738,32 @@ export class ImageViewer {
     this.wheelCooldown = false;
   }
 
+  private async exitFullscreenForClose(): Promise<void> {
+    let onResize: (() => void) | undefined;
+    const viewport = this.fullscreenViewport;
+    const resized =
+      viewport && (viewport.width !== window.innerWidth || viewport.height !== window.innerHeight)
+        ? new Promise<void>((resolve) => {
+            onResize = resolve;
+            window.addEventListener("resize", onResize, { once: true });
+          })
+        : undefined;
+    try {
+      await document.exitFullscreen();
+      await resized;
+    } catch (error) {
+      void logWarn("全画面表示を終了できませんでした", "content", String(error));
+    } finally {
+      if (onResize) window.removeEventListener("resize", onResize);
+    }
+  }
+
   private async toggleFullscreen(): Promise<void> {
     try {
       if (document.fullscreenElement === this.host) {
         await document.exitFullscreen();
       } else {
+        this.fullscreenViewport = { width: window.innerWidth, height: window.innerHeight };
         await this.host.requestFullscreen();
       }
     } catch {
@@ -964,6 +990,6 @@ export class ImageViewer {
   }
 }
 
-export function createImageViewer(onClose?: () => void): ImageViewer {
+export function createImageViewer(onClose?: CloseHandler): ImageViewer {
   return new ImageViewer(onClose);
 }
