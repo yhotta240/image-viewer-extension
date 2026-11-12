@@ -32,7 +32,11 @@ const WHEEL_THRESHOLD = 40;
 const WHEEL_COOLDOWN_MS = 90;
 const SWIPE_CLOSE_THRESHOLD = 80;
 
-type CloseHandler = (sourceElement?: HTMLElement, fullscreenExit?: Promise<void>) => void;
+type CloseHandler = (
+  sourceElement?: HTMLElement,
+  fullscreenExit?: Promise<void>,
+  block?: ScrollLogicalPosition,
+) => void;
 
 type ViewerElements = {
   viewer: HTMLDivElement;
@@ -449,7 +453,15 @@ export class ImageViewer {
 
   closeViewer(): void {
     if (!this.isOpen) return;
-    const sourceElement = this.galleryVisible ? undefined : this.images[this.index]?.sourceElement;
+    let index = this.index;
+    if (this.galleryVisible) {
+      const bounds = this.elements.gallery.getBoundingClientRect();
+      index = Array.from(this.elements.gallery.children).findIndex((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.bottom > bounds.top && rect.top < bounds.bottom;
+      });
+    }
+    const sourceElement = this.images[index]?.sourceElement;
     this.isOpen = false;
     this.resetWheelState();
     this.resetSwipeVisuals(false);
@@ -469,7 +481,7 @@ export class ImageViewer {
     this.elements.gallery.replaceChildren();
     if (document.body) document.body.style.overflow = this.previousBodyOverflow;
     this.host.style.display = "none";
-    this.onClose?.(sourceElement, fullscreenExit);
+    this.onClose?.(sourceElement, fullscreenExit, this.galleryVisible ? "start" : "center");
   }
 
   showHoverButton(target: HTMLImageElement, open: () => void): void {
