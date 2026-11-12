@@ -18,7 +18,7 @@ let settings: ImageViewerSettings = DEFAULT_SETTINGS;
 let enabled = true;
 let stopImageObservation: (() => void) | undefined;
 let closeSequence = 0;
-const viewer: ImageViewer = createImageViewer(async (sourceElement, fullscreenExit) => {
+const viewer: ImageViewer = createImageViewer(async (sourceElement, fullscreenExit, block) => {
   const sequence = ++closeSequence;
   stopImageObservation?.();
   stopImageObservation = undefined;
@@ -39,7 +39,11 @@ const viewer: ImageViewer = createImageViewer(async (sourceElement, fullscreenEx
     }
     const style = getComputedStyle(sourceElement);
     if (style.visibility !== "visible" || style.opacity === "0") return;
-    sourceElement.scrollIntoView({ behavior: "instant", block: "center", inline: "nearest" });
+    sourceElement.scrollIntoView({
+      behavior: "instant",
+      block: block ?? "center",
+      inline: "nearest",
+    });
   } catch (error) {
     void logError("元の画像の位置へ移動できませんでした", "content", error);
   }
