@@ -161,6 +161,7 @@ function setupMessages(): void {
 
 async function initialize(): Promise<void> {
   settings = await getSettings();
+  viewer.loopImages = settings.loopImages !== false;
   enabled = await isEnabled();
   setupHoverActivation();
   setupAltClickActivation();
@@ -181,6 +182,7 @@ async function initialize(): Promise<void> {
 async function updateSettings(): Promise<void> {
   try {
     settings = await getSettings();
+    viewer.loopImages = settings.loopImages !== false;
     if (viewer.open) startImageObservation();
     if (!settings.showHoverButton) viewer.scheduleHoverHide();
   } catch (error) {
