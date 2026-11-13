@@ -148,6 +148,7 @@ export class ImageViewer {
   private galleryFit = false;
   private galleryScale = 1;
   private galleryLayoutFrame: number | undefined;
+  private galleryScrollPending = false;
   private readonly galleryItems = new Map<string, HTMLButtonElement>();
 
   constructor(private readonly onClose?: CloseHandler) {
@@ -365,11 +366,18 @@ export class ImageViewer {
       const width =
         gallery.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       if (width <= 0) return;
+      const paddingTop = parseFloat(style.paddingTop);
+      const target = gallery.children[this.index] as HTMLElement | undefined;
+      const keepCurrentAtTop =
+        !this.galleryScrollPending &&
+        target !== undefined &&
+        Math.abs(target.offsetTop - paddingTop - gallery.scrollTop) <= 1;
       const gap = parseFloat(style.columnGap);
       const maxHeight = 200 * this.galleryScale;
       if (!this.galleryFit) {
         const columns = Math.max(1, Math.ceil((width + gap) / (maxHeight * (4 / 3) + gap)));
         gallery.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+        this.scrollGalleryToCurrent(keepCurrentAtTop, paddingTop);
         return;
       }
       gallery.style.gridTemplateColumns = "";
@@ -397,7 +405,17 @@ export class ImageViewer {
         if (ratios * maxHeight + gap * (row.length - 1) >= width) finishRow(true);
       }
       if (row.length) finishRow(false);
+      this.scrollGalleryToCurrent(keepCurrentAtTop, paddingTop);
     });
+  }
+
+  private scrollGalleryToCurrent(keepCurrentAtTop: boolean, paddingTop: number): void {
+    if (!this.galleryScrollPending && !keepCurrentAtTop) return;
+    const { gallery } = this.elements;
+    const target = gallery.children[this.index] as HTMLElement | undefined;
+    if (!target) return;
+    gallery.scrollTop = target.offsetTop - paddingTop;
+    this.galleryScrollPending = false;
   }
 
   get open(): boolean {
@@ -436,6 +454,7 @@ export class ImageViewer {
     this.elements.viewer.hidden = false;
     this.host.style.display = "block";
     this.resetZoom();
+    this.galleryScrollPending = this.galleryVisible;
     this.render();
     this.elements.close.focus({ preventScroll: true });
   }
@@ -463,6 +482,7 @@ export class ImageViewer {
     }
     const sourceElement = this.images[index]?.sourceElement;
     this.isOpen = false;
+    this.galleryScrollPending = false;
     this.resetWheelState();
     this.resetSwipeVisuals(false);
     this.share.close();
