@@ -110,6 +110,7 @@ function appendLucideIcon(button: HTMLButtonElement, icon: IconNode, size: numbe
 }
 
 export class ImageViewer {
+  loopImages = true;
   private readonly host: HTMLDivElement;
   private readonly hoverHost: HTMLDivElement;
   private readonly elements: ViewerElements;
@@ -758,6 +759,8 @@ export class ImageViewer {
 
   private move(delta: number): void {
     if (!this.isOpen || this.galleryVisible || this.images.length === 0) return;
+    const nextIndex = this.index + delta;
+    if (!this.loopImages && (nextIndex < 0 || nextIndex >= this.images.length)) return;
     this.index = (this.index + delta + this.images.length) % this.images.length;
     this.resetZoom();
     this.render();

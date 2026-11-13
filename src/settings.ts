@@ -4,6 +4,7 @@ export type ImageViewerSettings = {
   showHoverButton: boolean;
   initialView: "preview" | "gallery";
   scrollToImageOnClose: boolean;
+  loopImages: boolean;
 };
 
 export type Settings = ImageViewerSettings & {
@@ -16,4 +17,5 @@ export const DEFAULT_SETTINGS: Settings = {
   showHoverButton: true,
   initialView: "preview",
   scrollToImageOnClose: false,
+  loopImages: true,
 };
