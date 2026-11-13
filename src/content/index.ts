@@ -136,6 +136,8 @@ function setupHoverActivation(): void {
     },
     true,
   );
+  hoveredImage = document.querySelector<HTMLImageElement>("img:hover");
+  if (hoveredImage) showHoverButtonIfEligible(hoveredImage);
 }
 
 function setupAltClickActivation(): void {
